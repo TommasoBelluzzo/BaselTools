@@ -27,9 +27,7 @@ classdef (Sealed) BaselOP < handle
             com.mathworks.mwswing.MJUtilities.initJIDE();
             javaaddpath(fullfile(pwd(),'BaselTools.jar'));
             
-            this.Handles = [];
             this.Initialized = false;
-            this.Modifiers = [];
             this.Transition = false;
             this.Year = year(now());
             
