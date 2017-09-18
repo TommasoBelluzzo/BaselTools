@@ -1,0 +1,122 @@
+<deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
+  <configuration build-checksum="929318668" file="C:\Users\Zarathos\Dropbox\BaselTools\BaselOP.prj" location="C:\Users\Zarathos\Dropbox\BaselTools" name="BaselOP" preferred-package-location="C:\Users\Zarathos\Dropbox\BaselTools\BaselOperational\Installers" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="Application Compiler">
+    <param.appname>BaselOP</param.appname>
+    <param.icon />
+    <param.icons />
+    <param.version>1.0</param.version>
+    <param.authnamewatermark>Tommaso Belluzzo</param.authnamewatermark>
+    <param.email>tommaso.belluzzo@gmail.com</param.email>
+    <param.company />
+    <param.summary />
+    <param.description />
+    <param.screenshot />
+    <param.guid />
+    <param.installpath.string>\BaselTools\</param.installpath.string>
+    <param.installpath.combo>option.installpath.programfiles</param.installpath.combo>
+    <param.logo />
+    <param.install.notes />
+    <param.target.install.notes />
+    <param.intermediate>${PROJECT_ROOT}\BaselOP\Debug</param.intermediate>
+    <param.files.only>${PROJECT_ROOT}\BaselOP\Release</param.files.only>
+    <param.output>${PROJECT_ROOT}\BaselOP\Installers</param.output>
+    <param.logdir>${PROJECT_ROOT}\BaselOP</param.logdir>
+    <param.enable.clean.build>false</param.enable.clean.build>
+    <param.user.defined.mcr.options />
+    <param.target.type>subtarget.standalone</param.target.type>
+    <param.support.packages />
+    <param.web.mcr>true</param.web.mcr>
+    <param.package.mcr>false</param.package.mcr>
+    <param.no.mcr>false</param.no.mcr>
+    <param.web.mcr.name>BaselOP</param.web.mcr.name>
+    <param.package.mcr.name>MyAppInstaller_mcr</param.package.mcr.name>
+    <param.no.mcr.name>MyAppInstaller_app</param.no.mcr.name>
+    <param.windows.command.prompt>true</param.windows.command.prompt>
+    <param.create.log>true</param.create.log>
+    <param.log.file>BaselOP.log</param.log.file>
+    <unset>
+      <param.icon />
+      <param.icons />
+      <param.version />
+      <param.company />
+      <param.summary />
+      <param.description />
+      <param.screenshot />
+      <param.guid />
+      <param.installpath.combo />
+      <param.logo />
+      <param.target.install.notes />
+      <param.logdir />
+      <param.enable.clean.build />
+      <param.user.defined.mcr.options />
+      <param.target.type />
+      <param.support.packages />
+      <param.web.mcr />
+      <param.package.mcr />
+      <param.no.mcr />
+      <param.package.mcr.name />
+      <param.no.mcr.name />
+      <param.windows.command.prompt />
+    </unset>
+    <fileset.main>
+      <file>${PROJECT_ROOT}\BaselOP.m</file>
+    </fileset.main>
+    <fileset.resources>
+      <file>${PROJECT_ROOT}\findjobj.m</file>
+    </fileset.resources>
+    <fileset.package>
+      <file>${PROJECT_ROOT}\BaselOP.xlsx</file>
+      <file>${PROJECT_ROOT}\BaselTools.jar</file>
+    </fileset.package>
+    <fileset.depfun />
+    <build-deliverables>
+      <file location="${PROJECT_ROOT}\BaselOP\Debug" name="readme.txt" optional="true">C:\Users\Zarathos\Dropbox\BaselTools\BaselOP\Debug\readme.txt</file>
+      <file location="${PROJECT_ROOT}\BaselOP\Debug" name="BaselOP.exe" optional="false">C:\Users\Zarathos\Dropbox\BaselTools\BaselOP\Debug\BaselOP.exe</file>
+      <file location="${PROJECT_ROOT}\BaselOP\Debug" name="splash.png" optional="false">C:\Users\Zarathos\Dropbox\BaselTools\BaselOP\Debug\splash.png</file>
+    </build-deliverables>
+    <workflow />
+    <matlab>
+      <root>C:\Program Files\Matlab 2017a</root>
+      <toolboxes>
+        <toolbox name="fixedpoint" />
+        <toolbox name="matlabcoder" />
+        <toolbox name="matlabhdlcoder" />
+        <toolbox name="embeddedcoder" />
+      </toolboxes>
+      <toolbox>
+        <fixedpoint>
+          <enabled>true</enabled>
+        </fixedpoint>
+      </toolbox>
+      <toolbox>
+        <matlabcoder>
+          <enabled>true</enabled>
+        </matlabcoder>
+      </toolbox>
+      <toolbox>
+        <matlabhdlcoder>
+          <enabled>true</enabled>
+        </matlabhdlcoder>
+      </toolbox>
+      <toolbox>
+        <embeddedcoder>
+          <enabled>true</enabled>
+        </embeddedcoder>
+      </toolbox>
+    </matlab>
+    <platform>
+      <unix>false</unix>
+      <mac>false</mac>
+      <windows>true</windows>
+      <win2k>false</win2k>
+      <winxp>false</winxp>
+      <vista>false</vista>
+      <linux>false</linux>
+      <solaris>false</solaris>
+      <osver>6.1</osver>
+      <os32>false</os32>
+      <os64>true</os64>
+      <arch>win64</arch>
+      <matlab>true</matlab>
+    </platform>
+  </configuration>
+</deployment-project>
