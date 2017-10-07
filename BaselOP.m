@@ -638,7 +638,7 @@ classdef (Sealed) BaselOP < BaselInterface
             
             opts = detectImportOptions(file,'Sheet',1);
             opts = setvartype(opts,{'uint32' 'datetime' 'categorical' 'categorical' 'double' 'double'});
-            opts = setvaropts(opts,'Date','InputFormat','dd/mm/yyyy');
+            opts = setvaropts(opts,'Date','InputFormat','dd/MM/yyyy');
             opts = setvaropts(opts,'BusinessLine','Categories',{'AG' 'AM' 'CB' 'CF' 'PS' 'RBA' 'RBR' 'TS'});
             opts = setvaropts(opts,'RiskCategory','Categories',{'BDSF' 'CPBP' 'DPA' 'EDPM' 'EF' 'EPWS' 'IF'});
             
