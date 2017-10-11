@@ -801,6 +801,10 @@ classdef (Sealed) BaselOP < BaselInterface
                 end
                 
                 exc_sh1.Activate();
+                
+                path = fileparts(file);
+                mkdir(path);
+                
                 exc_wb.SaveAs(file);
             catch e
                 err = this.FormatException('The exportation process failed.',e);
