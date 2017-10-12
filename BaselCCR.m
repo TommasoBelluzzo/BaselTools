@@ -77,6 +77,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             han.ResultButtonCalculate.Callback = @this.ResultButtonCalculate_Clicked;
             han.ResultButtonExport.Callback = @this.ResultButtonExport_Clicked;
             han.ResultButtonReset.Callback = @this.ResultButtonReset_Clicked;
+            han.ResultCheckboxSimplified.Callback = @this.ResultCheckboxSimplified_CheckedChanged;
             
             han.TabGroup = uitabgroup('Parent',obj);
             han.TabGroup.Units = 'pixels';
@@ -182,14 +183,18 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.Trades = [];
             
             this.Handles.DatasetCheckboxValidation.Enable = 'on';
+            this.Handles.DatasetTextValidation.Enable = 'on';
             this.Handles.DatasetButtonLoad.Enable = 'on';
 
             this.SetupTable(this.Handles.ResultTableNetting, ...
                 'Sorting',           2, ...
                 'VerticalScrollbar', true);
+            this.Handles.ResultTextEAD.String = 'Total EAD: 0,00';
+            
             this.SetupTable(this.Handles.ResultTableHedging, ...
                 'Sorting',           2, ...
                 'VerticalScrollbar', true);
+
             this.SetupTable(this.Handles.ResultTableRisk, ...
                 'VerticalScrollbar', true);
             
@@ -198,19 +203,33 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.Result = [];
             
             this.Handles.ResultButtonCalculate.Enable = 'off';
-            this.Handles.ResultButtonExport.Enable = 'off';
             this.Handles.ResultButtonReset.Enable = 'off';
+
+            this.Handles.ResultCheckboxSimplified.Enable = 'off';
+            this.Handles.ResultTextSimplified.Enable = 'off';
             this.Handles.ResultCheckboxOffset.Enable = 'off';
+            this.Handles.ResultTextOffset.Enable = 'off';
+            
+            this.Handles.ResultCheckboxCompact.Enable = 'off';
+            this.Handles.ResultTextCompact.Enable = 'off';
+            this.Handles.ResultCheckboxStyles.Enable = 'off';
+            this.Handles.ResultTextStyles.Enable = 'off';
+            
+            this.Handles.ResultButtonExport.Enable = 'off';
         end
         
         function DatasetButtonLoad_Clicked(this,obj,evd) %#ok<INUSD>
             obj.Enable = 'off';
             this.Handles.DatasetCheckboxValidation.Enable = 'off';
+            this.Handles.DatasetTextValidation.Enable = 'off';
             
             [name,path] = uigetfile({'*.xls;*.xlsx','Excel Spreadsheets (*.xls;*.xlsx)'},'Load Dataset',[pwd() '\Datasets']);
             
             if (name == 0)
+                this.Handles.DatasetCheckboxValidation.Enable = 'on';
+                this.Handles.DatasetTextValidation.Enable = 'on';
                 obj.Enable = 'on';
+
                 return;
             end
             
@@ -234,6 +253,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 uiwait(dlg);
                 
                 this.Handles.DatasetCheckboxValidation.Enable = 'on';
+                this.Handles.DatasetTextValidation.Enable = 'on';
                 obj.Enable = 'on';
                 
                 return;
@@ -254,6 +274,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 uiwait(dlg);
                 
                 this.Handles.DatasetCheckboxValidation.Enable = 'on';
+                this.Handles.DatasetTextValidation.Enable = 'on';
                 obj.Enable = 'on';
                 
                 return;
@@ -274,6 +295,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 uiwait(dlg);
                 
                 this.Handles.DatasetCheckboxValidation.Enable = 'on';
+                this.Handles.DatasetTextValidation.Enable = 'on';
                 obj.Enable = 'on';
                 
                 return;
@@ -310,9 +332,17 @@ classdef (Sealed) BaselCCR < BaselInterface
                     'VerticalScrollbar', true);
                 
                 this.Handles.DatasetButtonClear.Enable = 'on';
-                this.Handles.ResultCheckboxOffset.Enable = 'on';
+                
                 this.Handles.ResultButtonCalculate.Enable = 'on';
                 
+                if (this.Handles.ResultCheckboxSimplified.Value == 0)
+                    this.Handles.ResultCheckboxOffset.Enable = 'on';
+                    this.Handles.ResultTextOffset.Enable = 'on';
+                end
+                
+                this.Handles.ResultCheckboxSimplified.Enable = 'on';
+                this.Handles.ResultTextSimplified.Enable = 'on';
+
                 this.Collaterals = cols;
                 this.NettingSets = nss;
                 this.Trades = trds;
@@ -342,6 +372,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 uiwait(dlg);
                 
                 this.Handles.DatasetCheckboxValidation.Enable = 'on';
+                this.Handles.DatasetTextValidation.Enable = 'on';
                 obj.Enable = 'on';
                 
                 return;
@@ -353,8 +384,13 @@ classdef (Sealed) BaselCCR < BaselInterface
         
         function ResultButtonCalculate_Clicked(this,obj,evd) %#ok<INUSD>
             obj.Enable = 'off';
+
+            this.Handles.ResultCheckboxSimplified.Enable = 'off';
+            this.Handles.ResultTextSimplified.Enable = 'off';
+
             this.Handles.ResultCheckboxOffset.Enable = 'off';
-            
+            this.Handles.ResultTextOffset.Enable = 'off';
+
             import('java.awt.*');
             
             bar = waitbar(0,'Performing Calculations...','CloseRequestFcn','','WindowStyle','modal');
@@ -369,33 +405,57 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 ead_tot = 0;
                 
-                for i = 1:nss_len
-                    ns = this.NettingSets(i,:);
-                    trds = this.Trades(strcmp(this.Trades.NettingSetID,ns.ID),:);
-                    cols = this.Collaterals(strcmp(this.Collaterals.NettingSetID,ns.ID),:);
+                if (this.Handles.ResultCheckboxSimplified.Value == 0)
+                    off = (this.Handles.ResultCheckboxOffset.Value == 1);
                     
-                    if (isempty(trds))
-                        nss_res(i,:) = {char(ns.ID) 0 NaN NaN NaN {} NaN NaN NaN {}};
-                        continue;
-                    end
-                    
-                    if (ns.Margined)
-                        [rc_umar,pfe_umar,ead_umar,hs_umar] = this.CalculateEAD(ns,trds,cols,false);
-                        [rc_mar,pfe_mar,ead_mar,hs_mar] = this.CalculateEAD(ns,trds,cols,true);
-                        
-                        if (ead_mar > ead_umar)
-                            ead = ead_umar;
-                        else
-                            ead = ead_mar;
+                    for i = 1:nss_len
+                        ns = this.NettingSets(i,:);
+                        trds = this.Trades(strcmp(this.Trades.NettingSetID,ns.ID),:);
+                        cols = this.Collaterals(strcmp(this.Collaterals.NettingSetID,ns.ID),:);
+
+                        if (isempty(trds))
+                            nss_res(i,:) = {char(ns.ID) 0 NaN NaN NaN {} NaN NaN NaN {}};
+                            continue;
                         end
-                        
-                        nss_res(i,:) = {char(ns.ID) ead rc_umar pfe_umar ead_umar hs_umar rc_mar pfe_mar ead_mar hs_mar};
-                    else
-                        [rc,pfe,ead,hs] = this.CalculateEAD(ns,trds,cols,false);
-                        nss_res(i,:) = {char(ns.ID) ead rc pfe ead hs NaN NaN NaN {}};
+
+                        if (ns.Margined)
+                            [rc_umar,pfe_umar,ead_umar,hs_umar] = this.CalculateEAD_Full(ns,false,trds,cols,off);
+                            [rc_mar,pfe_mar,ead_mar,hs_mar] = this.CalculateEAD_Full(ns,true,trds,cols,off);
+
+                            if (ead_mar > ead_umar)
+                                ead = ead_umar;
+                            else
+                                ead = ead_mar;
+                            end
+
+                            nss_res(i,:) = {char(ns.ID) ead rc_umar pfe_umar ead_umar hs_umar rc_mar pfe_mar ead_mar hs_mar};
+                        else
+                            [rc,pfe,ead,hs] = this.CalculateEAD_Full(ns,false,trds,cols,off);
+                            nss_res(i,:) = {char(ns.ID) ead rc pfe ead hs NaN NaN NaN {}};
+                        end
+
+                        ead_tot = ead_tot + ead;
                     end
-                    
-                    ead_tot = ead_tot + ead;
+                else
+                    for i = 1:nss_len
+                        ns = this.NettingSets(i,:);
+                        trds = this.Trades(strcmp(this.Trades.NettingSetID,ns.ID),:);
+
+                        if (isempty(trds))
+                            nss_res(i,:) = {char(ns.ID) 0 NaN NaN NaN {} NaN NaN NaN {}};
+                            continue;
+                        end
+
+                        if (ns.Margined)
+                            [rc,pfe,ead,hs] = this.CalculateEAD_Simple(ns,true,trds);
+                            nss_res(i,:) = {char(ns.ID) ead NaN NaN NaN {} rc pfe ead hs};
+                        else
+                            [rc,pfe,ead,hs] = this.CalculateEAD_Simple(ns,false,trds);
+                            nss_res(i,:) = {char(ns.ID) ead rc pfe ead hs NaN NaN NaN {}};
+                        end
+
+                        ead_tot = ead_tot + ead;
+                    end
                 end
                 
                 nss_tab = nss_res(:,[1:5 7:9]);
@@ -418,7 +478,14 @@ classdef (Sealed) BaselCCR < BaselInterface
                 dlg = errordlg(err,'Error','modal');
                 uiwait(dlg);
 
-                this.Handles.ResultCheckboxOffset.Enable = 'on';
+                if (this.Handles.ResultCheckboxSimplified.Value == 0)
+                    this.Handles.ResultCheckboxOffset.Enable = 'on';
+                    this.Handles.ResultTextOffset.Enable = 'on';
+                end
+                
+                this.Handles.ResultCheckboxSimplified.Enable = 'on';
+                this.Handles.ResultTextSimplified.Enable = 'on';
+
                 obj.Enable = 'on';
                 
                 return;
@@ -452,9 +519,15 @@ classdef (Sealed) BaselCCR < BaselInterface
                 this.Result = nss_res(:,[1 6 end]);
                 this.CurrentNettingSet = '';
                 this.CurrentHedgingSet = '';
-                
-                this.Handles.ResultButtonExport.Enable = 'on';
+
                 this.Handles.ResultButtonReset.Enable = 'on';
+                
+                this.Handles.ResultCheckboxCompact.Enable = 'on';
+                this.Handles.ResultTextCompact.Enable = 'on';
+                this.Handles.ResultCheckboxStyles.Enable = 'on';
+                this.Handles.ResultTextStyles.Enable = 'on';
+
+                this.Handles.ResultButtonExport.Enable = 'on';
             catch e
                 err = this.FormatException('The interface could not be updated.',e);
             end
@@ -475,15 +548,28 @@ classdef (Sealed) BaselCCR < BaselInterface
                 this.CurrentNettingSet = '';
                 this.CurrentHedgingSet = '';
                 
-                this.Handles.ResultButtonExport.Enable = 'off';  
                 this.Handles.ResultButtonReset.Enable = 'off';
+                
+                this.Handles.ResultCheckboxCompact.Enable = 'off';
+                this.Handles.ResultTextCompact.Enable = 'off';
+                this.Handles.ResultCheckboxStyles.Enable = 'off';
+                this.Handles.ResultTextStyles.Enable = 'off';
+
+                this.Handles.ResultButtonExport.Enable = 'off';
               
                 delete(bar);
                 
                 dlg = errordlg(err,'Error','modal');
                 uiwait(dlg);
 
-                this.Handles.ResultCheckboxOffset.Enable = 'on';
+                if (this.Handles.ResultCheckboxSimplified.Value == 0)
+                    this.Handles.ResultCheckboxOffset.Enable = 'on';
+                    this.Handles.ResultTextOffset.Enable = 'on';
+                end
+                
+                this.Handles.ResultCheckboxSimplified.Enable = 'on';
+                this.Handles.ResultTextSimplified.Enable = 'on';
+
                 obj.Enable = 'on';
                 
                 return;
@@ -497,22 +583,35 @@ classdef (Sealed) BaselCCR < BaselInterface
             obj.Enable = 'off';
             
             import('java.awt.*');
-
+            
             bar = waitbar(0,'Expoting Data...','CloseRequestFcn','','WindowStyle','modal');
             frm = Frame.getFrames();
             frm(end).setAlwaysOnTop(true);
             
             file = fullfile(pwd(),'\Results\ResultCCR.xlsx');
-            %%err = this.ExportData(file);
+            
+            err = '';
+
+            try
+                this.ExportData(file);
+            catch e
+                err = this.FormatException('The exportation process failed.',e);
+            end
+            
+            if (~isempty(err))
+                delete(bar);
+                
+                dlg = errordlg(err,'Error','modal');
+                uiwait(dlg);
+                
+                obj.Enable = 'on';
+                
+                return;
+            end
             
             waitbar(1,bar);
             delete(bar);
             
-            if (~isempty(err))
-                dlg = errordlg(err,'Error','modal');
-                uiwait(dlg);
-            end
-
             obj.Enable = 'on';
         end
         
@@ -522,18 +621,44 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.SetupTable(this.Handles.ResultTableNetting, ...
                 'Sorting',           2, ...
                 'VerticalScrollbar', true);
+            this.Handles.ResultTextEAD.String = 'Total EAD: 0,00';
+            
             this.SetupTable(this.Handles.ResultTableHedging, ...
                 'Sorting',           2, ...
                 'VerticalScrollbar', true);
+
             this.SetupTable(this.Handles.ResultTableRisk, ...
                 'VerticalScrollbar', true);
             
             this.CurrentHedgingSet = '';
             this.CurrentNettingSet = '';
             this.Result = [];
-
-            this.Handles.ResultCheckboxOffset.Enable = 'on';
+            
             this.Handles.ResultButtonCalculate.Enable = 'on';
+
+            if (this.Handles.ResultCheckboxSimplified.Value == 0)
+                this.Handles.ResultCheckboxOffset.Enable = 'on';
+                this.Handles.ResultTextOffset.Enable = 'on';
+            end
+
+            this.Handles.ResultCheckboxSimplified.Enable = 'on';
+            this.Handles.ResultTextSimplified.Enable = 'on';
+
+            this.Handles.ResultCheckboxCompact.Enable = 'off';
+            this.Handles.ResultTextCompact.Enable = 'off';
+            this.Handles.ResultCheckboxStyles.Enable = 'off';
+            this.Handles.ResultTextStyles.Enable = 'off';
+
+            this.Handles.ResultButtonExport.Enable = 'off';
+        end
+        
+        function ResultCheckboxSimplified_CheckedChanged(this,obj,evd) %#ok<INUSD>
+            if (obj.Value == 0)
+                this.Handles.ResultCheckboxOffset.Enable = 'on';
+            else
+                this.Handles.ResultCheckboxOffset.Value = 0;
+                this.Handles.ResultCheckboxOffset.Enable = 'off';
+            end
         end
         
         function ResultTable_Entered(this,obj,evd) %#ok<INUSD>
@@ -567,25 +692,43 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             try
                 ns = this.Result(strcmp(this.Result(:,1),this.CurrentNettingSet),:);
-                hs_umar = ns{2};
                 
-                if (isempty(hs_umar))
+                hs_umar = ns{2};
+                hs_umar_emp = isempty(hs_umar);
+                
+                hs_mar = ns{3};
+                hs_mar_emp = isempty(hs_mar);
+                
+                if (hs_umar_emp && hs_mar_emp)
                     this.SetupTable(this.Handles.ResultTableRisk, ...
                         'VerticalScrollbar', true);
                 else
-                    rf_umar = hs_umar{strcmp(hs_umar(:,1),hsid),4};
+                    if (hs_umar_emp)
+                        rf_umar = {};
+                        rf_umar_emp = true;
+                    else
+                        rf_umar = hs_umar{strcmp(hs_umar(:,1),hsid),4};
+                        rf_umar_emp = isempty(rf_umar);
+                    end
+                    
+                    if (hs_mar_emp)
+                        rf_mar = {};
+                        rf_mar_emp = true;
+                    else
+                        rf_mar = hs_mar{strcmp(hs_mar(:,1),hsid),4};
+                        rf_mar_emp = isempty(rf_mar);
+                    end
 
-                    if (isempty(rf_umar))
+                    if (rf_umar_emp && rf_mar_emp)
                         this.SetupTable(this.Handles.ResultTableRisk, ...
                             'VerticalScrollbar', true);
                     else
-                        hs_mar = ns{3};
-                        
-                        if (isempty(hs_mar))
+                        if (rf_umar_emp)
+                            rf_umar = num2cell(nan(size(rf_mar)));
+                            rf_umar(:,1) = rf_mar(:,1);
+                        elseif (rf_mar_emp)
                             rf_mar = num2cell(nan(size(rf_umar)));
                             rf_mar(:,1) = rf_umar(:,1);
-                        else
-                            rf_mar = hs_mar{strcmp(hs_mar(:,1),hsid),4};
                         end
 
                         ref_vals_len = size(rf_umar,1);
@@ -660,23 +803,29 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             try
                 ns = this.Result(strcmp(this.Result(:,1),nsid),:);
-                hs_umar = ns{2};
-                hs_mar = ns{3};
                 
-                if (isempty(hs_umar))
+                hs_umar = ns{2};
+                hs_umar_emp = isempty(hs_umar);
+                
+                hs_mar = ns{3};
+                hs_mar_emp = isempty(hs_mar);
+                
+                if (hs_umar_emp && hs_mar_emp)
                     this.SetupTable(this.Handles.ResultTableHedging, ...
                         'Sorting',           2, ...
                         'VerticalScrollbar', true);
                 else
-                    hs_vals_umar = cell2mat(hs_umar(:,2:3));
-                    hs_max_eff_not_umar = this.FindConstrainedMaximum(hs_vals_umar(:,1));
-                    hs_max_addon_umar = this.FindConstrainedMaximum(hs_vals_umar(:,2));
-                    
-                    if (isempty(hs_mar))
+                    if (hs_umar_emp)
+                        hs_umar = num2cell(nan(size(hs_mar)));
+                        hs_umar(:,1) = hs_mar(:,1);
+                    elseif (hs_mar_emp)
                         hs_mar = num2cell(nan(size(hs_umar)));
                         hs_mar(:,1) = hs_umar(:,1);
                     end
                     
+                    hs_vals_umar = cell2mat(hs_umar(:,2:3));
+                    hs_max_eff_not_umar = this.FindConstrainedMaximum(hs_vals_umar(:,1));
+                    hs_max_addon_umar = this.FindConstrainedMaximum(hs_vals_umar(:,2));
                     hs_vals_mar = cell2mat(hs_mar(:,2:3));
                     hs_max_eff_not_mar = this.FindConstrainedMaximum(hs_vals_mar(:,1));
                     hs_max_addon_mar = this.FindConstrainedMaximum(hs_vals_mar(:,2));
@@ -729,11 +878,11 @@ classdef (Sealed) BaselCCR < BaselInterface
 
     %% Methods: Functions
     methods (Access = private)
-        function [addon,hs] = CalculateAddonCommodities(this,trds,trds_mat_fac)
+        function [addon,hs] = CalculateAddonCommodities_Full(this,trds,trds_mat_fac)
+            addon = 0;
+            
             if (isempty(trds))
-                addon = 0;
                 hs = {};
-
                 return;
             end
             
@@ -744,13 +893,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 trd = trds(i,:);
                 trd_ref = char(trd.Reference);
                 
-                if (ismissing(trd.OptionPosition))
-                    if (trd.Position == 'LONG')
-                        trd_sup_del = 1;
-                    else
-                        trd_sup_del = -1;
-                    end
-                else
+                if (~ismissing(trd.OptionPosition))
                     if (strcmp(trd_ref,'ELECTRICITY'))
                         trd_sup_vol = 1.5;
                     else
@@ -768,6 +911,12 @@ classdef (Sealed) BaselCCR < BaselInterface
                     if (trd.Position == 'SHORT')
                         trd_sup_del = -1 * trd_sup_del;
                     end
+                else
+                    if (trd.Position == 'LONG')
+                        trd_sup_del = 1;
+                    else
+                        trd_sup_del = -1;
+                    end
                 end
                 
                 if (isnan(trds_mat_fac))
@@ -782,17 +931,50 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             grp = findgroups(trds_par(:,1));
-            hs = splitapply(@(x)this.CalculateAddonCommoditiesHedgingSet(x),trds_par,grp);
+            hs = splitapply(@(x)this.CalculateAddonCommoditiesHedgingSet_Full(x),trds_par,grp);
             hs = sortrows(hs,1);
-            
-            addon = 0;
             
             for i = 1:size(hs,1)
                 addon = addon + hs{i,3};
             end
         end
         
-        function [hs,rfs] = CalculateAddonCommoditiesHedgingSet(this,trds) %#ok<INUSL>
+        function [addon,hs] = CalculateAddonCommodities_Simple(this,trds,trds_mat_fac)
+            addon = 0;
+            
+            if (isempty(trds))
+                hs = {};
+                return;
+            end
+            
+            trds_len = height(trds);
+            trds_par = cell(trds_len,3);
+            
+            for i = 1:trds_len
+                trd = trds(i,:);
+                trd_ref = char(trd.Reference);
+
+                if (trd.Position == 'LONG')
+                    trd_sup_del = 1;
+                else
+                    trd_sup_del = -1;
+                end
+                
+                trd_eff_not = trd.Notional * trd_sup_del * trds_mat_fac;
+                
+                trds_par(i,:) = {char(trd.Subclass) trd_ref trd_eff_not};
+            end
+            
+            grp = findgroups(trds_par(:,1));
+            hs = splitapply(@(x)this.CalculateAddonCommoditiesHedgingSet_Simple(x),trds_par,grp);
+            hs = sortrows(hs,1);
+
+            for i = 1:size(hs,1)
+                addon = addon + hs{i,3};
+            end
+        end
+        
+        function [hs,rfs] = CalculateAddonCommoditiesHedgingSet_Full(this,trds) %#ok<INUSL>
             hs_comp_idi = 0;
             hs_comp_sys = 0;
             hs_trds = trds(:,2:end);
@@ -826,11 +1008,40 @@ classdef (Sealed) BaselCCR < BaselInterface
             hs = {['COMMODITIES - ' trds{1,1}] NaN sqrt(hs_comp_sys^2 + hs_comp_idi) rfs};
         end
         
-        function [addon,hs] = CalculateAddonCredit(this,trds,trds_mat_fac) %#ok<INUSL>
-            if (isempty(trds))
-                addon = 0;
-                hs = {};
+        function [hs,rfs] = CalculateAddonCommoditiesHedgingSet_Simple(this,trds) %#ok<INUSL>
+            hs_addon = 0;
+            hs_trds = trds(:,2:end);
+            
+            [grp,grp_id] = findgroups(hs_trds(:,1));
+            grp_id_len = numel(grp_id);
+            
+            rfs = cell(grp_id_len,5);
+            
+            for i = 1:grp_id_len
+                rf = hs_trds((grp == i),:);
+                rf_name = grp_id{i};
                 
+                rf_eff_not = sum([rf{:,2}]);
+                
+                if (strcmp(rf_name,'ELECTRICITY'))
+                    rf_addon = 0.4 * rf_eff_not;
+                else
+                    rf_addon = 0.18 * rf_eff_not;
+                end
+                
+                hs_addon = hs_addon + abs(rf_addon);
+                
+                rfs(i,:) = {rf_name rf_eff_not rf_addon NaN NaN};
+            end
+            
+            hs = {['COMMODITIES - ' trds{1,1}] NaN hs_addon rfs};
+        end
+        
+        function [addon,hs] = CalculateAddonCredit_Full(this,trds,trds_mat_fac) %#ok<INUSL>
+            addon = 0;
+            
+            if (isempty(trds))
+                hs = {};
                 return;
             end
             
@@ -840,7 +1051,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             for i = 1:trds_len
                 trd = trds(i,:);
                 trd_ref = char(trd.Reference);
-                
+
                 if (trd.End < 1)
                     trd_sup_dur = sqrt(trd.End);
                 else
@@ -848,10 +1059,10 @@ classdef (Sealed) BaselCCR < BaselInterface
                 end
                 
                 trd_adj_not = trd.Notional * trd_sup_dur;
-                
+
                 if (~ismissing(trd.CDOAttachment))
                     trd_sup_del = 15 / ((1 + (14 * trd.CDOAttachment)) * (1 + (14 * trd.CDODetachment)));
-                    
+
                     if (trd.Position == 'SHORT')
                         trd_sup_del = -1 * trd_sup_del;
                     end
@@ -861,7 +1072,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                     else
                         trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * trd.OptionTime)) / sqrt(trd.OptionTime);
                     end
-                    
+
                     if (trd.Position == 'LONG')
                         if (trd.OptionPosition == 'LONG')
                             trd_sup_del = normcdf(trd_sup_del);
@@ -882,20 +1093,20 @@ classdef (Sealed) BaselCCR < BaselInterface
                         trd_sup_del = -1;
                     end
                 end
-                
+
                 if (isnan(trds_mat_fac))
                     trd_mat_fac = sqrt(min([1 trd.Maturity]));
                 else
                     trd_mat_fac = trds_mat_fac;
                 end
-                
+
                 trd_eff_not = trd_adj_not * trd_sup_del * trd_mat_fac;
                 
                 trds_par(i,:) = {trd.Class trd.Subclass trd_ref trd_eff_not};
             end
             
-            comp_idi = 0;
-            comp_sys = 0;
+            hs_comp_idi = 0;
+            hs_comp_sys = 0;
             
             [ref_uni,~,ref_uni_idx] = unique(trds_par(:,3));
             ref_uni_len = numel(ref_uni);
@@ -942,21 +1153,97 @@ classdef (Sealed) BaselCCR < BaselInterface
                 rf_comp_idi = (1 - rf_cor^2) * rf_addon^2;
                 rf_comp_sys = rf_cor * rf_addon;
                 
-                comp_idi = comp_idi + rf_comp_idi;
-                comp_sys = comp_sys + rf_comp_sys;
+                hs_comp_idi = hs_comp_idi + rf_comp_idi;
+                hs_comp_sys = hs_comp_sys + rf_comp_sys;
                 
                 rfs(rf_idx,:) = {rf_name rf_eff_not rf_addon rf_comp_sys rf_comp_idi};
             end
-            
-            addon = sqrt(comp_sys^2 + comp_idi);
+
+            addon = sqrt(hs_comp_sys^2 + hs_comp_idi);
+
             hs = {'CREDIT' NaN addon rfs};
         end
         
-        function [addon,hs] = CalculateAddonEquity(this,trds,trds_mat_fac) %#ok<INUSL>
+        function [addon,hs] = CalculateAddonCredit_Simple(this,trds,trds_mat_fac) %#ok<INUSL>
+            addon = 0;
+            
+            if (isempty(trds))
+                hs = {};
+                return;
+            end
+            
+            trds_len = height(trds);
+            trds_par = cell(trds_len,4);
+            
+            for i = 1:trds_len
+                trd = trds(i,:);
+                trd_ref = char(trd.Reference);
+
+                trd_sup_dur = trd.End - trd.Start;
+                trd_adj_not = trd.Notional * trd_sup_dur;
+
+                if (trd.Position == 'LONG')
+                    trd_sup_del = 1;
+                else
+                    trd_sup_del = -1;
+                end
+
+                trd_eff_not = trd_adj_not * trd_sup_del * trds_mat_fac;
+                
+                trds_par(i,:) = {trd.Class trd.Subclass trd_ref trd_eff_not};
+            end
+            
+            [ref_uni,~,ref_uni_idx] = unique(trds_par(:,3));
+            ref_uni_len = numel(ref_uni);
+            
+            rfs = [ref_uni num2cell(zeros(ref_uni_len,4))];
+            
+            for i = 1:ref_uni_len
+                rf = trds_par((ref_uni_idx == i),:);
+                rf_name = rf{1,3};
+                rf_idx = strcmp(rfs(:,1),rf_name);
+                
+                switch (rf{1,1})
+                    case 'CR_IDX'
+                        if (rf{1,2} == 'IG')
+                            rf_sup_fac = 0.0038;
+                        else
+                            rf_sup_fac = 0.0106;
+                        end
+                        
+                    case 'CR_SIN'
+                        switch (rf{1,2})
+                            case {'AAA' 'AA'}
+                                rf_sup_fac = 0.0038;
+                            case 'A'
+                                rf_sup_fac = 0.0042;
+                            case 'BBB'
+                                rf_sup_fac = 0.0054;
+                            case 'BB'
+                                rf_sup_fac = 0.0106;
+                            case 'B'
+                                rf_sup_fac = 0.016;
+                            otherwise
+                                rf_sup_fac = 0.06;
+                        end
+                end
+                
+                rf_eff_not = sum([rf{:,4}]);
+                rf_addon = rf_sup_fac * rf_eff_not;
+                
+                addon = addon + abs(rf_addon);
+                
+                rfs(rf_idx,:) = {rf_name rf_eff_not rf_addon NaN NaN};
+            end
+
+            hs = {'CREDIT' NaN addon rfs};
+        end
+        
+        function [addon,hs] = CalculateAddonEquity_Full(this,trds,trds_mat_fac) %#ok<INUSL>
             if (isempty(trds))
                 addon = 0;
                 hs = {};
-                
+
                 return;
             end
             
@@ -976,13 +1263,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 trd_adj_not = trd.Notional * trd_sup_dur;
                 
-                if (ismissing(trd.OptionPosition))
-                    if (trd.Position == 'LONG')
-                        trd_sup_del = 1;
-                    else
-                        trd_sup_del = -1;
-                    end
-                else
+                if (~ismissing(trd.OptionPosition))
                     if (trd.Class == 'EQ_IDX')
                         trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 0.75^2 * trd.OptionTime)) / (0.75 * sqrt(trd.OptionTime));
                     else
@@ -1002,6 +1283,12 @@ classdef (Sealed) BaselCCR < BaselInterface
                             trd_sup_del = -normcdf(trd_sup_del);
                         end
                     end
+                else
+                    if (trd.Position == 'LONG')
+                        trd_sup_del = 1;
+                    else
+                        trd_sup_del = -1;
+                    end
                 end
                 
                 if (isnan(trds_mat_fac))
@@ -1015,8 +1302,8 @@ classdef (Sealed) BaselCCR < BaselInterface
                 trds_par(i,:) = {trd_cls trd_ref trd_eff_not};
             end
             
-            comp_idi = 0;
-            comp_sys = 0;
+            hs_comp_idi = 0;
+            hs_comp_sys = 0;
             
             [ref_uni,~,ref_uni_idx] = unique(trds_par(:,2));
             ref_uni_len = numel(ref_uni);
@@ -1042,21 +1329,79 @@ classdef (Sealed) BaselCCR < BaselInterface
                 rf_comp_idi = (1 - rf_cor^2) * rf_addon^2;
                 rf_comp_sys = rf_cor * rf_addon;
                 
-                comp_idi = comp_idi + rf_comp_idi;
-                comp_sys = comp_sys + rf_comp_sys;
+                hs_comp_idi = hs_comp_idi + rf_comp_idi;
+                hs_comp_sys = hs_comp_sys + rf_comp_sys;
                 
                 rfs(rf_idx,:) = {rf_name rf_eff_not rf_addon rf_comp_sys rf_comp_idi};
             end
             
-            addon = sqrt(comp_sys^2 + comp_idi);
+            addon = sqrt(hs_comp_sys^2 + hs_comp_idi);
+
             hs = {'EQUITY' NaN addon rfs};
         end
         
-        function [addon,hs] = CalculateAddonForex(this,trds,trds_mat_fac) %#ok<INUSL>
+        function [addon,hs] = CalculateAddonEquity_Simple(this,trds,trds_mat_fac) %#ok<INUSL>
+            addon = 0;
+            
             if (isempty(trds))
-                addon = 0;
                 hs = {};
+                return;
+            end
+            
+            trds_len = height(trds);
+            trds_par = cell(trds_len,3);
+            
+            for i = 1:trds_len
+                trd = trds(i,:);
+                trd_cls = char(trd.Class);
+                trd_ref = char(trd.Reference);
                 
+                trd_sup_dur = trd.End - trd.Start;
+                trd_adj_not = trd.Notional * trd_sup_dur;
+                
+                if (trd.Position == 'LONG')
+                    trd_sup_del = 1;
+                else
+                    trd_sup_del = -1;
+                end
+                
+                trd_eff_not = trd_adj_not * trd_sup_del * trds_mat_fac;
+                
+                trds_par(i,:) = {trd_cls trd_ref trd_eff_not};
+            end
+            
+            [ref_uni,~,ref_uni_idx] = unique(trds_par(:,2));
+            ref_uni_len = numel(ref_uni);
+            
+            rfs = [ref_uni num2cell(zeros(ref_uni_len,4))];
+            
+            for i = 1:ref_uni_len
+                rf = trds_par((ref_uni_idx == i),:);
+                rf_name = rf{1,2};
+                rf_idx = strcmp(rfs(:,1),rf_name);
+                
+                if (rf{1,1} == 'EQ_IDX')
+                    rf_sup_fac = 0.2;
+                else
+                    rf_sup_fac = 0.32;
+                end
+                
+                rf_eff_not = sum([rf{:,3}]);
+                rf_addon = rf_sup_fac * rf_eff_not;
+                
+                addon = addon + abs(rf_addon);
+                
+                rfs(rf_idx,:) = {rf_name rf_eff_not rf_addon NaN NaN};
+            end
+
+            hs = {'EQUITY' NaN addon rfs};
+        end
+        
+        function [addon,hs] = CalculateAddonForex_Full(this,trds,trds_mat_fac) %#ok<INUSL>
+            addon = 0;
+
+            if (isempty(trds))
+                hs = {};
                 return;
             end
             
@@ -1068,13 +1413,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 trd_ccys = sort({char(trd.PayerCurrency) char(trd.ReceiverCurrency)});
                 trd_hs = [trd_ccys{1} '/' trd_ccys{2}];
                 
-                if (ismissing(trd.OptionPosition))
-                    if (trd.Position == 'LONG')
-                        trd_sup_del = 1;
-                    else
-                        trd_sup_del = -1;
-                    end
-                else
+                if (~ismissing(trd.OptionPosition))
                     trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 0.15^2 * trd.OptionTime)) / (0.15 * sqrt(trd.OptionTime));
                     
                     if (trd.Position == 'LONG')
@@ -1089,6 +1428,12 @@ classdef (Sealed) BaselCCR < BaselInterface
                         else
                             trd_sup_del = -normcdf(trd_sup_del);
                         end
+                    end
+                else
+                    if (trd.Position == 'LONG')
+                        trd_sup_del = 1;
+                    else
+                        trd_sup_del = -1;
                     end
                 end
                 
@@ -1105,8 +1450,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             [hs_uni,~,hs_uni_idx] = unique(trds_par(:,1));
             hs_uni_len = numel(hs_uni);
-            
-            addon = 0;
+
             hs = cell(hs_uni_len,4);
             
             for i = 1:hs_uni_len
@@ -1123,11 +1467,57 @@ classdef (Sealed) BaselCCR < BaselInterface
             hs = sortrows(hs,1);
         end
         
-        function [addon,hs] = CalculateAddonInterestRate(this,trds,trds_mat_fac)
+        function [addon,hs] = CalculateAddonForex_Simple(this,trds,trds_mat_fac) %#ok<INUSL>
+            addon = 0;
+
             if (isempty(trds))
-                addon = 0;
                 hs = {};
+                return;
+            end
+            
+            trds_len = height(trds);
+            trds_par = cell(trds_len,2);
+            
+            for i = 1:trds_len
+                trd = trds(i,:);
+                trd_ccys = sort({char(trd.PayerCurrency) char(trd.ReceiverCurrency)});
+                trd_hs = [trd_ccys{1} '/' trd_ccys{2}];
+
+                if (trd.Position == 'LONG')
+                    trd_sup_del = 1;
+                else
+                    trd_sup_del = -1;
+                end
                 
+                trd_eff_not = trd.Notional * trd_sup_del * trds_mat_fac;
+                
+                trds_par(i,:) = {trd_hs trd_eff_not};
+            end
+            
+            [hs_uni,~,hs_uni_idx] = unique(trds_par(:,1));
+            hs_uni_len = numel(hs_uni);
+
+            hs = cell(hs_uni_len,4);
+            
+            for i = 1:hs_uni_len
+                hs_trds_par = trds_par((hs_uni_idx == i),:);
+                
+                hs_eff_not = sum([hs_trds_par{:,2}]);
+                hs_addon = 0.04 * abs(hs_eff_not);
+                
+                addon = addon + hs_addon;
+                
+                hs(i,1:end) = {['FOREIGN EXCHANGE - ' hs_trds_par{1,1}] hs_eff_not hs_addon {}};
+            end
+            
+            hs = sortrows(hs,1);
+        end
+        
+        function [addon,hs] = CalculateAddonInterestRate_Full(this,trds,trds_mat_fac,off)
+            addon = 0;
+            
+            if (isempty(trds))
+                hs = {};
                 return;
             end
             
@@ -1195,7 +1585,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 else
                     if (~strcmp(trd_pay_leg,'FIXED') && endsWith(trd_pay_leg,'-VOL'))
                         trd_type = ['V ' char(trd.PayerCurrency) ' ' strrep(trd_pay_leg,'-VOL','')];
-                    elseif (~strcmp(trd_rec_leg,'FIXED') && endsWith(trd_rec_leg,{'-VAR' '-VOL'}))
+                    elseif (~strcmp(trd_rec_leg,'FIXED') && endsWith(trd_rec_leg,'-VOL'))
                         trd_type = ['V ' char(trd.PayerCurrency) ' ' strrep(trd_rec_leg,'-VOL','')];
                     else
                         trd_type = char(trd.PayerCurrency);
@@ -1218,13 +1608,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 trd_adj_not = trd.Notional * trd_sup_dur;
                 
-                if (ismissing(trd.OptionPosition))
-                    if (strcmp(trd_pay_leg,'FIXED'))
-                        trd_sup_del = 1;
-                    else
-                        trd_sup_del = -1;
-                    end
-                else
+                if (~ismissing(trd.OptionPosition))
                     trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 0.5^2 * trd.OptionTime)) / (0.5 * sqrt(trd.OptionTime));
                     
                     if (strcmp(trd_pay_leg,'FIXED'))
@@ -1240,6 +1624,12 @@ classdef (Sealed) BaselCCR < BaselInterface
                             trd_sup_del = -normcdf(trd_sup_del);
                         end
                     end
+                else
+                    if (strcmp(trd_pay_leg,'FIXED'))
+                        trd_sup_del = 1;
+                    else
+                        trd_sup_del = -1;
+                    end
                 end
                 
                 if (isnan(trds_mat_fac))
@@ -1254,7 +1644,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             grp = findgroups(trds_par(:,1));
-            hs = splitapply(@(x)this.CalculateAddonInterestRateHedgingSet(x),trds_par,grp);
+            hs = splitapply(@(x)this.CalculateAddonInterestRateHedgingSet_Full(x,off),trds_par,grp);
             hs = sortrows(hs,[1 2 3]);
             
             for i = 1:size(hs,1)
@@ -1268,15 +1658,135 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             hs(:,2:3) = [];
-            
-            addon = 0;
-            
+
             for i = 1:size(hs,1)
                 addon = addon + hs{i,3};
             end
         end
         
-        function [hs,rfs] = CalculateAddonInterestRateHedgingSet(this,trds)
+        function [addon,hs] = CalculateAddonInterestRate_Simple(this,trds,trds_mat_fac)
+            addon = 0;
+            
+            if (isempty(trds))
+                hs = {};
+                return;
+            end
+            
+            trds_len = height(trds);
+            trds_par = cell(trds_len,3);
+            
+            for i = 1:trds_len
+                trd = trds(i,:);
+                trd_pay_leg = char(trd.PayerLeg);
+                trd_rec_leg = char(trd.ReceiverLeg);
+                
+                if (~strcmp(trd_pay_leg,'FIXED') && ~strcmp(trd_rec_leg,'FIXED'))
+                    trd_pay_spl = strsplit(trd_pay_leg,'-');
+                    
+                    if (endsWith(trd_pay_spl(2),'ON'))
+                        trd_pay_freq = 1;
+                    else
+                        trd_pay_tenor = trd_pay_spl{2};
+                        
+                        switch (trd_pay_tenor(end))
+                            case 'W'
+                                trd_pay_freq = 5;
+                            case 'M'
+                                trd_pay_freq = 21;
+                            case 'Y'
+                                trd_pay_freq = 252;
+                            otherwise
+                                trd_pay_freq = 1;
+                        end
+                        
+                        trd_pay_freq = trd_pay_freq * str2double(trd_pay_tenor(1:end-1));
+                    end
+                    
+                    trd_rec_spl = strsplit(char(trd_rec_leg),'-');
+                    
+                    if (endsWith(trd_rec_spl(2),'ON'))
+                        trd_rec_freq = 1;
+                    else
+                        trd_rec_tenor = trd_rec_spl{2};
+                        
+                        switch (trd_rec_tenor(end))
+                            case 'W'
+                                trd_rec_freq = 5;
+                            case 'M'
+                                trd_rec_freq = 21;
+                            case 'Y'
+                                trd_rec_freq = 252;
+                            otherwise
+                                trd_rec_freq = 1;
+                        end
+                        
+                        trd_rec_freq = trd_rec_freq * str2double(trd_rec_tenor(1:end-1));
+                    end
+                    
+                    trd_freq = {trd_pay_leg trd_pay_freq; trd_rec_leg trd_rec_freq};
+                    trd_freq = sortrows(trd_freq,2);
+                    trd_freq_1 = trd_freq{1};
+                    trd_freq_2 = trd_freq{2};
+                    
+                    if (strcmp(trd_freq_1,trd_freq_2))
+                        trd_type = ['B ' char(trd.PayerCurrency) ' ' strrep(trd_freq_1,'-','')];
+                    else
+                        trd_type = ['B ' char(trd.PayerCurrency) ' ' strrep(trd_freq_1,'-','') '/' strrep(trd_freq_2,'-','')];
+                    end
+                else
+                    if (~strcmp(trd_pay_leg,'FIXED') && endsWith(trd_pay_leg,'-VOL'))
+                        trd_type = ['V ' char(trd.PayerCurrency) ' ' strrep(trd_pay_leg,'-VOL','')];
+                    elseif (~strcmp(trd_rec_leg,'FIXED') && endsWith(trd_rec_leg,'-VOL'))
+                        trd_type = ['V ' char(trd.PayerCurrency) ' ' strrep(trd_rec_leg,'-VOL','')];
+                    else
+                        trd_type = char(trd.PayerCurrency);
+                    end
+                end
+                
+                if (trd.Maturity < 1)
+                    trd_buc = 1;
+                elseif (trd.Maturity <= 5)
+                    trd_buc = 2;
+                else
+                    trd_buc = 3;
+                end
+
+                trd_sup_dur = trd.End - trd.Start;
+                trd_adj_not = trd.Notional * trd_sup_dur;
+
+                if (strcmp(trd_pay_leg,'FIXED'))
+                    trd_sup_del = 1;
+                else
+                    trd_sup_del = -1;
+                end
+                
+                trd_eff_not = trd_adj_not * trd_sup_del * trds_mat_fac;
+                
+                trds_par(i,:) = {trd_type trd_buc trd_eff_not};
+            end
+            
+            grp = findgroups(trds_par(:,1));
+            hs = splitapply(@(x)this.CalculateAddonInterestRateHedgingSet_Simple(x),trds_par,grp);
+            hs = sortrows(hs,[1 2 3]);
+            
+            for i = 1:size(hs,1)
+                hs_pre = hs{i,1};
+                
+                if (strcmp(hs_pre,''))
+                    hs{i,1} = ['INTEREST RATE - ' hs{i,2}];
+                else
+                    hs{i,1} = ['INTEREST RATE - ' hs{i,2} ' ' hs{i,1} ' ' hs{i,3}];
+                end
+            end
+            
+            hs(:,2:3) = [];
+
+            for i = 1:size(hs,1)
+                addon = addon + hs{i,3};
+            end
+        end
+        
+        function [hs,rfs] = CalculateAddonInterestRateHedgingSet_Full(this,trds,off) %#ok<INUSL>
             hs_name = trds{1,1};
             hs_trds = trds(:,2:end);
             
@@ -1293,9 +1803,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 rfs{rf_buc,2} = rf_eff_not;
             end
             
-            if (this.Handles.ResultCheckboxOffset.Value == 0)
-                hs_eff_not = abs(rfs{1,2}) + abs(rfs{2,2}) + abs(rfs{3,2});
-            else
+            if (off)
                 rfs_eff_not_1 = rfs{1,2};
                 rfs_eff_not_2 = rfs{2,2};
                 rfs_eff_not_3 = rfs{3,2};
@@ -1304,6 +1812,8 @@ classdef (Sealed) BaselCCR < BaselInterface
                 rfs_corr_23 = 1.4 * rfs_eff_not_2 * rfs_eff_not_3;
                 
                 hs_eff_not = sqrt(rfs_eff_not_1^2 + rfs_eff_not_2^2 + rfs_eff_not_3^2 + rfs_corr_12 + rfs_corr_23 + rfs_corr_13);
+            else
+                hs_eff_not = abs(rfs{1,2}) + abs(rfs{2,2}) + abs(rfs{3,2});
             end
             
             if (startsWith(hs_name,'B '))
@@ -1328,7 +1838,55 @@ classdef (Sealed) BaselCCR < BaselInterface
                 hs_sup_fac = 0.005;
             end
             
-            hs = {hs_name_pre hs_name_ccy hs_name_tar hs_eff_not (hs_sup_fac * hs_eff_not) rfs};
+            hs_addon = hs_sup_fac * hs_eff_not;
+            
+            hs = {hs_name_pre hs_name_ccy hs_name_tar hs_eff_not hs_addon rfs};
+        end
+        
+        function [hs,rfs] = CalculateAddonInterestRateHedgingSet_Simple(this,trds) %#ok<INUSL>
+            hs_name = trds{1,1};
+            hs_trds = trds(:,2:end);
+            
+            [grp,grp_id] = findgroups([hs_trds{:,1}]);
+            
+            rfs = {'MATURITY BUCKET 1' 0 NaN NaN NaN; 'MATURITY BUCKET 2' 0 NaN NaN NaN; 'MATURITY BUCKET 3' 0 NaN NaN NaN;};
+            
+            for i = 1:numel(grp_id)
+                rf = hs_trds((grp == i),:);
+                rf_buc = grp_id(i);
+                
+                rf_eff_not = sum([rf{:,2}]);
+                
+                rfs{rf_buc,2} = rf_eff_not;
+            end
+
+            hs_eff_not = abs(rfs{1,2}) + abs(rfs{2,2}) + abs(rfs{3,2});
+            
+            if (startsWith(hs_name,'B '))
+                hs_name_spl = strsplit(hs_name,' ');
+                hs_name_pre = 'BASIS';
+                hs_name_ccy = hs_name_spl{2};
+                hs_name_tar = hs_name_spl{3};
+                
+                hs_sup_fac = 0.0025;
+            elseif (startsWith(hs_name,'V '))
+                hs_name_spl = strsplit(hs_name,' ');
+                hs_name_pre = 'VOLATILITY';
+                hs_name_ccy = hs_name_spl{2};
+                hs_name_tar = hs_name_spl{3};
+                
+                hs_sup_fac = 0.025;
+            else
+                hs_name_pre = '';
+                hs_name_ccy = hs_name;
+                hs_name_tar = '';
+                
+                hs_sup_fac = 0.005;
+            end
+            
+            hs_addon = hs_sup_fac * hs_eff_not;
+            
+            hs = {hs_name_pre hs_name_ccy hs_name_tar hs_eff_not hs_addon rfs};
         end
         
         function c = CalculateCollateral(this,cols,col_mat_fac) %#ok<INUSL>
@@ -1404,40 +1962,39 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
         end
         
-        function [rc,pfe,ead,hs] = CalculateEAD(this,ns,trds,cols,mar)
-            if (mar)
-                cols_mat_fac = sqrt(double(ns.MPOR) / 252);
-                trds_mat_fac = 1.5 * sqrt(max([10 double(ns.MPOR)]) / 252);
-                rc3 = ns.Threshold + ns.MTA + this.CalculateNICA(cols);
-            else
-                cols_mat_fac = NaN;
-                trds_mat_fac = NaN;
-                rc3 = NaN;
-            end
-            
+        function [rc,pfe,ead,hs] = CalculateEAD_Full(this,ns,ns_mar,trds,cols,off)
             v = sum(trds.Value);
-            c = this.CalculateCollateral(cols,cols_mat_fac);
-            vc = v + c;
-            rc = nanmax([0 vc rc3]);
-            
+
+            if (ns_mar)
+                vc = v + this.CalculateCollateral(cols,sqrt(double(ns.MPOR) / 252));
+                rc = max([0 vc (ns.Threshold + ns.MTA + this.CalculateNICA(cols))]);
+
+                trds_mat_fac = 1.5 * sqrt(max([10 double(ns.MPOR)]) / 252);
+            else
+                vc = v + this.CalculateCollateral(cols,NaN);
+                rc = max([0 vc]);
+                
+                trds_mat_fac = NaN;
+            end
+
             trd_co = trds((trds.Class == 'CO'),:);
-            [addon_co,hs_co] = this.CalculateAddonCommodities(trd_co,trds_mat_fac);
-            
+            [addon_co,hs_co] = this.CalculateAddonCommodities_Full(trd_co,trds_mat_fac);
+
             trd_cr = trds(((trds.Class == 'CR_IDX') | (trds.Class == 'CR_SIN')),:);
-            [addon_cr,hs_cr] = this.CalculateAddonCredit(trd_cr,trds_mat_fac);
-            
+            [addon_cr,hs_cr] = this.CalculateAddonCredit_Full(trd_cr,trds_mat_fac);
+
             trd_eq = trds(((trds.Class == 'EQ_IDX') | (trds.Class == 'EQ_SIN')),:);
-            [addon_eq,hs_eq] = this.CalculateAddonEquity(trd_eq,trds_mat_fac);
-            
+            [addon_eq,hs_eq] = this.CalculateAddonEquity_Full(trd_eq,trds_mat_fac);
+
             trd_fx = trds((trds.Class == 'FX'),:);
-            [addon_fx,hs_fx] = this.CalculateAddonForex(trd_fx,trds_mat_fac);
-            
+            [addon_fx,hs_fx] = this.CalculateAddonForex_Full(trd_fx,trds_mat_fac);
+
             trd_ir = trds((trds.Class == 'IR'),:);
-            [addon_ir,hs_ir] = this.CalculateAddonInterestRate(trd_ir,trds_mat_fac);
+            [addon_ir,hs_ir] = this.CalculateAddonInterestRate_Full(trd_ir,trds_mat_fac,off);
             
             addon = addon_co + addon_cr + addon_eq + addon_fx + addon_ir;
             hs = [hs_co; hs_cr; hs_eq; hs_fx; hs_ir];
-            
+
             if (vc < 0)
                 mul = min([1 (0.05 + (0.95 * exp(vc / (1.9 * addon))))]);
             else
@@ -1445,6 +2002,38 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             pfe = mul * addon;
+            
+            ead = 1.4 * (rc + pfe);
+        end
+        
+        function [rc,pfe,ead,hs] = CalculateEAD_Simple(this,ns,ns_mar,trds)
+            if (ns_mar)
+                rc = ns.Threshold + ns.MTA;
+                trds_mat_fac = 0.42;
+            else
+                rc = max([0 sum(trds.Value)]);
+                trds_mat_fac = 1;
+            end
+
+            trd_co = trds((trds.Class == 'CO'),:);
+            [addon_co,hs_co] = this.CalculateAddonCommodities_Simple(trd_co,trds_mat_fac);
+
+            trd_cr = trds(((trds.Class == 'CR_IDX') | (trds.Class == 'CR_SIN')),:);
+            [addon_cr,hs_cr] = this.CalculateAddonCredit_Simple(trd_cr,trds_mat_fac);
+
+            trd_eq = trds(((trds.Class == 'EQ_IDX') | (trds.Class == 'EQ_SIN')),:);
+            [addon_eq,hs_eq] = this.CalculateAddonEquity_Simple(trd_eq,trds_mat_fac);
+
+            trd_fx = trds((trds.Class == 'FX'),:);
+            [addon_fx,hs_fx] = this.CalculateAddonForex_Simple(trd_fx,trds_mat_fac);
+
+            trd_ir = trds((trds.Class == 'IR'),:);
+            [addon_ir,hs_ir] = this.CalculateAddonInterestRate_Simple(trd_ir,trds_mat_fac);
+            
+            addon = addon_co + addon_cr + addon_eq + addon_fx + addon_ir;
+            hs = [hs_co; hs_cr; hs_eq; hs_fx; hs_ir];
+            
+            pfe = addon;
             
             ead = 1.4 * (rc + pfe);
         end
@@ -1663,7 +2252,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             opts = detectImportOptions(file,'Sheet',2);
             opts = setvartype(opts,{'uint32' 'uint32' 'categorical' 'categorical' 'double' 'double' 'double' 'double' 'double' 'categorical' 'char' 'char' 'char' 'char' 'char' 'double' 'double' 'categorical' 'double' 'double' 'double'});
             opts = setvaropts(opts,'Class','Categories',{'CO' 'CR_IDX' 'CR_SIN' 'EQ_IDX' 'EQ_SIN' 'FX' 'IR'});
-            opts = setvaropts(opts,'Subclass','Categories',{'OTHER' 'AGRICULTURAL' 'ENERGY' 'METAL' 'IG' 'SG' 'AAA' 'AA' 'A' 'BBB' 'BB' 'B' 'CCC'});
+            opts = setvaropts(opts,'Subclass','Categories',{'OTHER' 'AGRICULTURAL' 'CLIMATIC' 'ENERGY' 'METAL' 'IG' 'SG' 'AAA' 'AA' 'A' 'BBB' 'BB' 'B' 'CCC'});
             opts = setvaropts(opts,'Position','Categories',{'LONG' 'SHORT'});
             opts = setvaropts(opts,'OptionPosition','Categories',{'LONG' 'SHORT'});
             trds = readtable(file,opts);
@@ -1693,7 +2282,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             err = this.DatasetValidateCollaterals(stg,nss,trds,cols);
         end
         
-        function err = DatasetValidateCollaterals(this,stg,nss,trds,cols) %#ok<INUSL>
+         function err = DatasetValidateCollaterals(this,stg,nss,trds,cols) %#ok<INUSL>
             err = '';
             
             if (~isequal(strtrim(cols.Properties.VariableNames),{'ID' 'NettingSetID' 'TradeID' 'Type' 'Margin' 'Value' 'Parameter' 'Maturity'}))
@@ -1894,7 +2483,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             if (stg)
-                mpor_inv = ~nss.Margined & ~ismissing(nss.MPOR);
+                mpor_inv = ~nss.Margined & (nss.MPOR ~= 0);
                 
                 if (any(mpor_inv))
                     rows = (1:height(nss))';
@@ -1975,7 +2564,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             trds_ir = trds.Class == 'IR';
             trds_leg = trds_fx | trds_ir;
             
-            cls_sub_inv_co = trds_co & ~ismember(trds.Subclass,categorical({'AGRICULTURAL','ENERGY','METAL','OTHER'}));
+            cls_sub_inv_co = trds_co & ~ismember(trds.Subclass,categorical({'AGRICULTURAL','CLIMATIC','ENERGY','METAL','OTHER'}));
             cls_sub_inv_cr_idx = trds_cr_idx & ~ismember(trds.Subclass,categorical({'IG','SG'}));
             cls_sub_inv_cr_sin = trds_cr_sin & ~ismember(trds.Subclass,categorical({'AAA','AA','A','BBB','BB','B','CCC','OTHER'}));
             cls_sub_inv = cls_sub_inv_co | cls_sub_inv_cr_idx | cls_sub_inv_cr_sin;
@@ -2244,6 +2833,55 @@ classdef (Sealed) BaselCCR < BaselInterface
                 ref = rows(cdo_opt_inv) + 1;
                 err = char(strcat("In the 'Trades' table, credit entries cannot be linked to both a CDO and an option at the same time (rows: ",strjoin(string(ref),', '),")."));
             end
+        end
+        
+        function ExportData(this,file)
+            exc = actxserver('Excel.Application');
+            exc.DisplayAlerts = false;
+            exc.Interactive = false;
+            exc.ScreenUpdating = false;
+            exc.UserControl = false;
+            exc.Visible = false;
+
+            exc_wb = exc.Workbooks.Add();
+
+            exc_sh1 = exc_wb.Worksheets.Item(1);
+
+            if (this.Handles.CapitalCheckboxCompact.Value == 0)
+                this.ExportDataResult_Full(exc,exc_sh1,ilm,k_sma);
+
+                exc_sh = exc_wb.Worksheets.Item(3);
+
+                if (this.Handles.CapitalCheckboxComparison.Value == 0)
+                    exc_sh.Delete();
+                else
+                    this.ExportDataComparison(exc,exc_sh,k_b2);
+                end
+
+                exc_sh = exc_wb.Worksheets.Item(2);
+
+                if (this.Handles.CapitalCheckboxLoss.Value == 0)
+                    exc_sh.Delete();
+                else
+                    this.ExportDataLoss(exc,exc_sh);
+                end
+            else
+                this.ExportDataResult_Compact(exc,exc_sh1,ilm,k_sma,k_b2);
+                exc_wb.Worksheets.Item(3).Delete();
+                exc_wb.Worksheets.Item(2).Delete();
+            end
+
+            exc_sh1.Activate();
+
+            path = fileparts(file);
+            mkdir(path);
+
+            exc_wb.SaveAs(file);
+            
+            exc_wb.Close();
+            exc.Quit();
+            
+            delete(exc);
         end
         
         function res = FindConstrainedLength(this,vec) %#ok<INUSL>

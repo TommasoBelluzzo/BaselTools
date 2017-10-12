@@ -277,15 +277,28 @@ classdef (Sealed) BaselOP < BaselInterface
             frm(end).setAlwaysOnTop(true);
             
             file = strtrim(this.Handles.CapitalTextboxFile.String);
-            err = this.ExportData(file);
+            
+            err = '';
+            
+            try
+                this.ExportData(file);
+            catch e
+                err = this.FormatException('The exportation process failed.',e);
+            end
+            
+            if (~isempty(err))
+                delete(bar);
+                
+                dlg = errordlg(err,'Error','modal');
+                uiwait(dlg);
+                
+                obj.Enable = 'on';
+                
+                return;
+            end
             
             waitbar(1,bar);
             delete(bar);
-            
-            if (~isempty(err))
-                dlg = errordlg(err,'Error','modal');
-                uiwait(dlg);
-            end
             
             obj.Enable = 'on';
         end
@@ -748,67 +761,56 @@ classdef (Sealed) BaselOP < BaselInterface
             end
         end
         
-        function err = ExportData(this,file)
-            err = [];
-            
-            try
-                exc = actxserver('Excel.Application');
-                exc.DisplayAlerts = false;
-                exc.Interactive = false;
-                exc.ScreenUpdating = false;
-                exc.UserControl = false;
-                exc.Visible = false;
-                
-                exc_wb = exc.Workbooks.Add();
-            catch
-                err = 'The exportation process failed: the application was unable to create an Excel COM Object.';
-                return;
-            end
-            
-            try
-                jpan_cap_rslt = javaObjectEDT(findjobj(this.Handles.CapitalTableResult));
-                jtab_cap_rslt = javaObjectEDT(jpan_cap_rslt.getViewport().getView());
-                jtab_cap_rslt_cell = cell(jtab_cap_rslt.getModel().getData());
-                
-                ilm = jtab_cap_rslt_cell{3,2};
-                k_sma = jtab_cap_rslt_cell{4,2};
-                k_b2 = jtab_cap_rslt_cell{5,2};
-                
-                exc_sh1 = exc_wb.Worksheets.Item(1);
-                
-                if (this.Handles.CapitalCheckboxCompact.Value == 0)
-                    this.ExportDataResultFull(exc,exc_sh1,ilm,k_sma);
-                    
-                    exc_sh = exc_wb.Worksheets.Item(3);
-                    
-                    if (this.Handles.CapitalCheckboxComparison.Value == 0)
-                        exc_sh.Delete();
-                    else
-                        this.ExportDataComparison(exc,exc_sh,k_b2);
-                    end
-                    
-                    exc_sh = exc_wb.Worksheets.Item(2);
-                    
-                    if (this.Handles.CapitalCheckboxLoss.Value == 0)
-                        exc_sh.Delete();
-                    else
-                        this.ExportDataLoss(exc,exc_sh);
-                    end
+        function ExportData(this,file)
+            exc = actxserver('Excel.Application');
+            exc.DisplayAlerts = false;
+            exc.Interactive = false;
+            exc.ScreenUpdating = false;
+            exc.UserControl = false;
+            exc.Visible = false;
+
+            exc_wb = exc.Workbooks.Add();
+
+            jpan_cap_rslt = javaObjectEDT(findjobj(this.Handles.CapitalTableResult));
+            jtab_cap_rslt = javaObjectEDT(jpan_cap_rslt.getViewport().getView());
+            jtab_cap_rslt_cell = cell(jtab_cap_rslt.getModel().getData());
+
+            ilm = jtab_cap_rslt_cell{3,2};
+            k_sma = jtab_cap_rslt_cell{4,2};
+            k_b2 = jtab_cap_rslt_cell{5,2};
+
+            exc_sh1 = exc_wb.Worksheets.Item(1);
+
+            if (this.Handles.CapitalCheckboxCompact.Value == 0)
+                this.ExportDataResult_Full(exc,exc_sh1,ilm,k_sma);
+
+                exc_sh = exc_wb.Worksheets.Item(3);
+
+                if (this.Handles.CapitalCheckboxComparison.Value == 0)
+                    exc_sh.Delete();
                 else
-                    this.ExportDataResultCompact(exc,exc_sh1,ilm,k_sma,k_b2);
-                    exc_wb.Worksheets.Item(3).Delete();
-                    exc_wb.Worksheets.Item(2).Delete();
+                    this.ExportDataComparison(exc,exc_sh,k_b2);
                 end
-                
-                exc_sh1.Activate();
-                
-                path = fileparts(file);
-                mkdir(path);
-                
-                exc_wb.SaveAs(file);
-            catch e
-                err = this.FormatException('The exportation process failed.',e);
+
+                exc_sh = exc_wb.Worksheets.Item(2);
+
+                if (this.Handles.CapitalCheckboxLoss.Value == 0)
+                    exc_sh.Delete();
+                else
+                    this.ExportDataLoss(exc,exc_sh);
+                end
+            else
+                this.ExportDataResult_Compact(exc,exc_sh1,ilm,k_sma,k_b2);
+                exc_wb.Worksheets.Item(3).Delete();
+                exc_wb.Worksheets.Item(2).Delete();
             end
+
+            exc_sh1.Activate();
+
+            path = fileparts(file);
+            mkdir(path);
+
+            exc_wb.SaveAs(file);
             
             exc_wb.Close();
             exc.Quit();
@@ -993,7 +995,7 @@ classdef (Sealed) BaselOP < BaselInterface
             end
         end
         
-        function ExportDataResultCompact(this,exc,exc_sh,ilm,k_sma,k_b2)
+        function ExportDataResult_Compact(this,exc,exc_sh,ilm,k_sma,k_b2)
             has_cmpr = (this.Handles.CapitalCheckboxComparison.Value == 1);
             has_loss = ~ischar(ilm);
             
@@ -1201,7 +1203,7 @@ classdef (Sealed) BaselOP < BaselInterface
             end
         end
         
-        function ExportDataResultFull(this,exc,exc_sh,ilm,k)
+        function ExportDataResult_Full(this,exc,exc_sh,ilm,k)
             has_loss = ~ischar(ilm);
             
             jpan_bus_data = javaObjectEDT(findjobj(this.Handles.BusinessTableData));
