@@ -8,6 +8,7 @@ classdef (Sealed) BaselCCR < BaselInterface
         Initialized
         NettingSets
         Result
+        ResultEAD
         Trades
     end
     
@@ -59,6 +60,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.Initialized = [];
             this.NettingSets = [];
             this.Result = [];
+            this.ResultEAD = [];
             this.Trades = [];
         end
     end
@@ -198,10 +200,12 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.SetupTable(this.Handles.ResultTableRisk, ...
                 'VerticalScrollbar', true);
             
+            this.Result = [];
+            this.ResultEAD = [];
+            
             this.CurrentHedgingSet = '';
             this.CurrentNettingSet = '';
-            this.Result = [];
-            
+
             this.Handles.ResultButtonCalculate.Enable = 'off';
             this.Handles.ResultButtonReset.Enable = 'off';
 
@@ -313,15 +317,22 @@ classdef (Sealed) BaselCCR < BaselInterface
                     'Sorting',           2, ...
                     'VerticalScrollbar', true);
                 
-                this.Handles.DatasetTextCollaterals.String = ['Collaterals (' num2str(size(data.Collaterals,1)) ')'];
-                this.SetupTable(this.Handles.DatasetTableCollaterals, ...
-                    'Data',              data.Collaterals, ...
-                    'FillHeight',        false, ...
-                    'Renderer',          {'RendererCcrDataCols' data.CollateralsMaximumID data.CollateralsMaximumNettingSetID data.CollateralsMaximumValue data.CollateralsMaximumMaturity}, ...
-                    'RowsHeight',        24, ...
-                    'Sorting',           2, ...
-                    'VerticalScrollbar', true);
-                
+                if (isempty(data.Collaterals))
+                    this.Handles.DatasetTextCollaterals.String = 'Collaterals (0)';
+                    this.SetupTable(this.Handles.DatasetTableCollaterals, ...
+                        'Sorting',           2, ...
+                        'VerticalScrollbar', true);
+                else
+                    this.Handles.DatasetTextCollaterals.String = ['Collaterals (' num2str(size(data.Collaterals,1)) ')'];
+                    this.SetupTable(this.Handles.DatasetTableCollaterals, ...
+                        'Data',              data.Collaterals, ...
+                        'FillHeight',        false, ...
+                        'Renderer',          {'RendererCcrDataCols' data.CollateralsMaximumID data.CollateralsMaximumNettingSetID data.CollateralsMaximumValue data.CollateralsMaximumMaturity}, ...
+                        'RowsHeight',        24, ...
+                        'Sorting',           2, ...
+                        'VerticalScrollbar', true);
+                end
+
                 this.Handles.DatasetTextTrades.String = ['Trades (' num2str(size(data.Trades,1)) ')'];
                 this.SetupTable(this.Handles.DatasetTableTrades, ...
                     'Data',              data.Trades, ...
@@ -387,7 +398,6 @@ classdef (Sealed) BaselCCR < BaselInterface
 
             this.Handles.ResultCheckboxSimplified.Enable = 'off';
             this.Handles.ResultTextSimplified.Enable = 'off';
-
             this.Handles.ResultCheckboxOffset.Enable = 'off';
             this.Handles.ResultTextOffset.Enable = 'off';
 
@@ -516,7 +526,9 @@ classdef (Sealed) BaselCCR < BaselInterface
                 this.SetupTable(this.Handles.ResultTableRisk, ...
                     'VerticalScrollbar', true);
 
-                this.Result = nss_res(:,[1 6 end]);
+                this.Result = nss_res;
+                this.ResultEAD = ead_tot;
+                
                 this.CurrentNettingSet = '';
                 this.CurrentHedgingSet = '';
 
@@ -543,8 +555,10 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 this.SetupTable(this.Handles.ResultTableRisk, ...
                     'VerticalScrollbar', true);
-                
+
                 this.Result = [];
+                this.ResultEAD = [];
+                
                 this.CurrentNettingSet = '';
                 this.CurrentHedgingSet = '';
                 
@@ -581,14 +595,33 @@ classdef (Sealed) BaselCCR < BaselInterface
         
         function ResultButtonExport_Clicked(this,obj,evd) %#ok<INUSD>
             obj.Enable = 'off';
+            this.Handles.ResultCheckboxCompact.Enable = 'off';
+            this.Handles.ResultTextCompact.Enable = 'off';
+            this.Handles.ResultCheckboxStyles.Enable = 'off';
+            this.Handles.ResultTextStyles.Enable = 'off';
+            
+            file = ['\Results\ResultCCR-' datestr(now(),'ddmmyyyy') '.xlsx'];
+            file = fullfile(pwd(),file);
+
+            if (exist(file,'file') == 2)
+                res = questdlg(['The destination file "' file '" already exist. Do you want to overwrite it?'],'Alert','Yes','No','No');
+                
+                if (strcmp(res,'No'))
+                    this.Handles.ResultCheckboxCompact.Enable = 'on';
+                    this.Handles.ResultTextCompact.Enable = 'on';
+                    this.Handles.ResultCheckboxStyles.Enable = 'on';
+                    this.Handles.ResultTextStyles.Enable = 'on';
+                    obj.Enable = 'on';
+                    
+                    return;
+                end
+            end
             
             import('java.awt.*');
             
             bar = waitbar(0,'Expoting Data...','CloseRequestFcn','','WindowStyle','modal');
             frm = Frame.getFrames();
             frm(end).setAlwaysOnTop(true);
-            
-            file = fullfile(pwd(),'\Results\ResultCCR.xlsx');
             
             err = '';
 
@@ -604,6 +637,10 @@ classdef (Sealed) BaselCCR < BaselInterface
                 dlg = errordlg(err,'Error','modal');
                 uiwait(dlg);
                 
+                this.Handles.ResultCheckboxCompact.Enable = 'on';
+                this.Handles.ResultTextCompact.Enable = 'on';
+                this.Handles.ResultCheckboxStyles.Enable = 'on';
+                this.Handles.ResultTextStyles.Enable = 'on';
                 obj.Enable = 'on';
                 
                 return;
@@ -612,6 +649,10 @@ classdef (Sealed) BaselCCR < BaselInterface
             waitbar(1,bar);
             delete(bar);
             
+            this.Handles.ResultCheckboxCompact.Enable = 'on';
+            this.Handles.ResultTextCompact.Enable = 'on';
+            this.Handles.ResultCheckboxStyles.Enable = 'on';
+            this.Handles.ResultTextStyles.Enable = 'on';
             obj.Enable = 'on';
         end
         
@@ -630,9 +671,11 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.SetupTable(this.Handles.ResultTableRisk, ...
                 'VerticalScrollbar', true);
             
+            this.Result = [];
+            this.ResultEAD = [];
+            
             this.CurrentHedgingSet = '';
             this.CurrentNettingSet = '';
-            this.Result = [];
             
             this.Handles.ResultButtonCalculate.Enable = 'on';
 
@@ -693,10 +736,10 @@ classdef (Sealed) BaselCCR < BaselInterface
             try
                 ns = this.Result(strcmp(this.Result(:,1),this.CurrentNettingSet),:);
                 
-                hs_umar = ns{2};
+                hs_umar = ns{6};
                 hs_umar_emp = isempty(hs_umar);
                 
-                hs_mar = ns{3};
+                hs_mar = ns{end};
                 hs_mar_emp = isempty(hs_mar);
                 
                 if (hs_umar_emp && hs_mar_emp)
@@ -804,10 +847,10 @@ classdef (Sealed) BaselCCR < BaselInterface
             try
                 ns = this.Result(strcmp(this.Result(:,1),nsid),:);
                 
-                hs_umar = ns{2};
+                hs_umar = ns{6};
                 hs_umar_emp = isempty(hs_umar);
                 
-                hs_mar = ns{3};
+                hs_mar = ns{end};
                 hs_mar_emp = isempty(hs_mar);
                 
                 if (hs_umar_emp && hs_mar_emp)
@@ -2083,7 +2126,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                     trd_nns_id = [num2str(trd_nns.ID) 'T'];
                     
                     trds_nns_dat(i,:) = {0 false NaN NaN 0};
-                    trds_nns_id{i} = ns_id;
+                    trds_nns_id{i} = trd_nns_id;
                     trds_nns_tab(i,:) = {trd_nns_id false NaN NaN NaN};
                 end
                 
@@ -2176,7 +2219,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                     case 'FX'
                         trds_tab{i,9} = [char(trd.Position) ' | ' char(trd.PayerCurrency) '/' char(trd.ReceiverCurrency)];
                     case 'IR'
-                        trds_tab{i,9} = [char(trd.PayerCurrency) '/' char(trd.PayerLeg) ' + ' char(trd.ReceiverCurrency) '/' char(trd.ReceiverLeg)];
+                        trds_tab{i,9} = [char(trd.PayerCurrency) ' | ' char(trd.PayerLeg) '/' char(trd.ReceiverLeg)];
                     otherwise
                         trds_tab{i,9} = [char(trd.Position) ' | ' char(trd.Reference)];
                 end
@@ -2282,7 +2325,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             err = this.DatasetValidateCollaterals(stg,nss,trds,cols);
         end
         
-         function err = DatasetValidateCollaterals(this,stg,nss,trds,cols) %#ok<INUSL>
+        function err = DatasetValidateCollaterals(this,stg,nss,trds,cols) %#ok<INUSL>
             err = '';
             
             if (~isequal(strtrim(cols.Properties.VariableNames),{'ID' 'NettingSetID' 'TradeID' 'Type' 'Margin' 'Value' 'Parameter' 'Maturity'}))
@@ -2837,53 +2880,483 @@ classdef (Sealed) BaselCCR < BaselInterface
         
         function ExportData(this,file)
             exc = actxserver('Excel.Application');
-            exc.DisplayAlerts = false;
-            exc.Interactive = false;
-            exc.ScreenUpdating = false;
-            exc.UserControl = false;
-            exc.Visible = false;
+            
+            try
+                exc.DisplayAlerts = false;
+                exc.Interactive = false;
+                exc.ScreenUpdating = false;
+                exc.UserControl = false;
+                exc.Visible = false;
 
-            exc_wb = exc.Workbooks.Add();
+                exc_wb = exc.Workbooks.Add();
 
-            exc_sh1 = exc_wb.Worksheets.Item(1);
-
-            if (this.Handles.CapitalCheckboxCompact.Value == 0)
-                this.ExportDataResult_Full(exc,exc_sh1,ilm,k_sma);
-
-                exc_sh = exc_wb.Worksheets.Item(3);
-
-                if (this.Handles.CapitalCheckboxComparison.Value == 0)
-                    exc_sh.Delete();
+                if (this.Handles.ResultCheckboxCompact.Value == 0)
+                    this.ExportData_Full(exc,exc_wb);
                 else
-                    this.ExportDataComparison(exc,exc_sh,k_b2);
+                    this.ExportData_Compact(exc,exc_wb);
                 end
 
-                exc_sh = exc_wb.Worksheets.Item(2);
+                exc_wb.Worksheets.Item(1).Activate();
 
-                if (this.Handles.CapitalCheckboxLoss.Value == 0)
-                    exc_sh.Delete();
-                else
-                    this.ExportDataLoss(exc,exc_sh);
+                path = fileparts(file);
+                mkdir(path);
+
+                exc_wb.SaveAs(file);
+
+                exc_wb.Close();
+                exc.Quit();
+                
+                delete(exc);
+            catch e
+                try
+                    exc.Quit();
+                catch
                 end
-            else
-                this.ExportDataResult_Compact(exc,exc_sh1,ilm,k_sma,k_b2);
-                exc_wb.Worksheets.Item(3).Delete();
-                exc_wb.Worksheets.Item(2).Delete();
+                
+                try
+                    delete(exc);
+                catch
+                end
+                
+                rethrow(e);
             end
-
-            exc_sh1.Activate();
-
-            path = fileparts(file);
-            mkdir(path);
-
-            exc_wb.SaveAs(file);
-            
-            exc_wb.Close();
-            exc.Quit();
-            
-            delete(exc);
         end
         
+        function ExportData_Compact(this,exc,exc_wb)
+            import('baseltools.*');
+            
+            data_hea1 = {['Total EAD: ' char(Environment.FormatNumber(this.ResultEAD,true,2))] ''};
+            data_hea2 = {'Netting Set ID' 'EAD'};
+            data_tab = this.Result(:,1:2);
+            data_vals_len = size(data_tab,1);
+            data_vals_end = num2str(data_vals_len + 2);
+
+            exc_sh = exc_wb.Worksheets.Item(1);
+            exc_sh.Name = 'Result';
+            exc_sh.Columns.Item('A:B').ColumnWidth = 28;
+            
+            ran_hea1 = exc_sh.Range('A1:B1');
+            ran_hea1.MergeCells = 1;
+            ran_hea1.Value = data_hea1;
+            
+            ran_hea2 = exc_sh.Range('A2:B2');
+            ran_hea2.NumberFormat = '@';
+            ran_hea2.Value = data_hea2;
+            
+            ran_id = exc_sh.Range(['A3:A' data_vals_end]);
+            ran_id.Value = data_tab(:,1);
+            
+            ran_val = exc_sh.Range(['B3:B' data_vals_end]);
+            ran_val.NumberFormat = '#.##0,00';
+            ran_val.Value = data_tab(:,2);
+
+            ran_hea = exc.Union(ran_hea1, ...
+                ran_hea2);
+
+            ran_txt = exc.Union(ran_hea, ...
+                ran_id);
+            ran_txt.NumberFormat = '@';
+            
+            ran_tab = exc.Union(ran_txt, ...
+                ran_val);
+            ran_tab.HorizontalAlignment = -4108;
+            ran_tab.VerticalAlignment = -4108;
+
+            if (this.Handles.ResultCheckboxStyles.Value == 1)
+                clr_off = [1; 256; 65536];
+                clr_hea = Environment.ColorDisabled;
+                clr_ns_std = Environment.ColorCcrNetsStd;
+                clr_ns_std = [clr_ns_std.getRed() clr_ns_std.getGreen() clr_ns_std.getBlue()] * clr_off; 
+                clr_ns_trd = Environment.ColorCcrNetsTrd;
+                clr_ns_trd = [clr_ns_trd.getRed() clr_ns_trd.getGreen() clr_ns_trd.getBlue()] * clr_off;
+                
+                ran_tab.Borders.ColorIndex = 1;
+                ran_tab.Borders.LineStyle = 1;
+                ran_tab.Borders.Weight = 2;
+
+                ran_hea.Font.Bold = true;
+                ran_hea.Interior.Color = [clr_hea.getRed() clr_hea.getGreen() clr_hea.getBlue()] * clr_off;
+                ran_hea.RowHeight = 22;
+                
+                ran_hea1.Font.Size = 16;
+                ran_hea2.Font.Size = 13;
+                
+                i_off = 3;
+                
+                for i = 1:data_vals_len
+                    i_off_str = num2str(i_off);
+                    ran_ns = exc_sh.Range(['A' i_off_str ':B' i_off_str]);
+                    
+                    if (endsWith(data_tab(i,1),'N'))
+                        ran_ns.Interior.Color = clr_ns_std;
+                    else
+                        ran_ns.Interior.Color = clr_ns_trd;
+                    end
+                    
+                    i_off = i_off + 1;
+                end
+            end
+            
+            exc_wb.Worksheets.Item(3).Delete();
+            exc_wb.Worksheets.Item(2).Delete();
+        end
+        
+        function ExportData_Full(this,exc,exc_wb)
+            import('baseltools.*');
+            
+            nss_tab = [
+                {['Total EAD: ' char(Environment.FormatNumber(this.ResultEAD,true,2))] '' '' '' '' '' '' ''};
+                {'Netting Set ID' 'EAD' 'Unmargined RC' 'Unmargined PFE' 'Unmargined EAD' 'Margined RC' 'Margined PFE' 'Margined EAD'};
+                this.Result(:,[1:5 7:9])
+            ];
+
+            hss_tab = {'Name' 'Netting Set ID' 'Unmargined EN' 'Unmargined AO' 'Margined EN' 'Margined AO'};
+            
+            rfs_tab_pwc = [
+                {'Pairwise Correlation (Interest Rate)' '' '' '' ''};
+                {'Name' 'Hedging Set Name' 'Netting Set ID' 'Unmargined EN' 'Margined EN'}
+            ];
+            
+            rfs_tab_sfm = [
+                {'Single Factor Model Correlation (Others)' '' '' '' '' '' '' '' '' '' ''};
+                {'Name' 'Hedging Set Name' 'Netting Set ID' 'Unmargined EN' 'Unmargined AO' 'Unmargined SC' 'Unmargined IC' 'Margined EN' 'Margined AO' 'Margined SC' 'Margined IC'}
+            ];
+            
+            for i = 1:size(this.Result,1)
+                ns_id = this.Result(i,1);
+                
+                hss_umar = this.Result{i,6};
+                hss_umar_emp = isempty(hss_umar);
+                
+                hss_mar = this.Result{i,end};
+                hss_mar_emp = isempty(hss_mar);
+                
+                if (hss_umar_emp && hss_mar_emp)
+                    continue;
+                end
+                
+                if (hss_umar_emp)
+                    hss_size = size(hss_mar);
+                    hss_len = hss_size(1);
+                    
+                    hss_umar = num2cell(nan(hss_size));
+                    hss_umar(:,1) = hss_mar(:,1);
+                    hss_umar(:,end) = {{}};
+                elseif (hss_mar_emp)
+                    hss_size = size(hss_umar);
+                    hss_len = hss_size(1);
+                    
+                    hss_mar = num2cell(nan(hss_size));
+                    hss_mar(:,1) = hss_umar(:,1);
+                    hss_mar(:,end) = {{}};
+                else
+                    hss_len = size(hss_umar,1);
+                end
+
+                hss_ent = [hss_umar(:,1) repmat(ns_id,hss_len,1) hss_umar(:,2:3) hss_mar(:,2:3)];
+                hss_tab = [hss_tab; hss_ent]; %#ok<AGROW>
+                
+                for j = 1:hss_len
+                    hs_name = hss_umar(j,1);
+                    
+                    rfs_umar = hss_umar{j,end};
+                    rfs_umar_emp = isempty(rfs_umar);
+                    
+                    rfs_mar = hss_mar{j,end};
+                    rfs_mar_emp = isempty(rfs_mar);
+                    
+                    if (rfs_umar_emp && rfs_mar_emp)
+                        continue;
+                    end
+                    
+                    if (rfs_umar_emp)
+                        rfs_size = size(rfs_mar);
+                        rfs_len = rfs_size(1);
+
+                        rfs_umar = num2cell(nan(rfs_size));
+                        rfs_umar(:,1) = rfs_mar(:,1);
+                    elseif (rfs_mar_emp)
+                        rfs_size = size(rfs_umar);
+                        rfs_len = rfs_size(1);
+
+                        rfs_mar = num2cell(nan(rfs_size));
+                        rfs_mar(:,1) = rfs_umar(:,1);
+                    else
+                        rfs_len = size(rfs_umar,1);
+                    end
+                    
+                    if (startsWith(hs_name,'INTEREST RATE'))
+                        rfs_ent = [rfs_umar(:,1) repmat(hs_name,rfs_len,1) repmat(ns_id,rfs_len,1) rfs_umar(:,2) rfs_mar(:,2)];
+                        rfs_tab_pwc = [rfs_tab_pwc; rfs_ent]; %#ok<AGROW>
+                    else
+                        rfs_ent = [rfs_umar(:,1) repmat(hs_name,rfs_len,1) repmat(ns_id,rfs_len,1) rfs_umar(:,2:end) rfs_mar(:,2:end)];
+                        rfs_tab_sfm = [rfs_tab_sfm; rfs_ent]; %#ok<AGROW>
+                    end
+                end
+            end
+
+            nss_tab_len = size(nss_tab,1);
+            nss_tab_len_str = num2str(nss_tab_len);
+            hss_tab_len = size(hss_tab,1);
+            hss_tab_len_str = num2str(hss_tab_len);
+            rfs_tab_pwc_len = size(rfs_tab_pwc,1);
+            rfs_tab_pwc_len_str = num2str(rfs_tab_pwc_len);
+            rfs_tab_pwc_fill = (rfs_tab_pwc_len >= 3);
+            rfs_tab_sfm_len = size(rfs_tab_sfm,1);
+            rfs_tab_sfm_len_str = num2str(rfs_tab_sfm_len);
+            rfs_tab_sfm_fill = (rfs_tab_sfm_len >= 3);
+
+            exc_sh1 = exc_wb.Worksheets.Item(1);
+            exc_sh1.Name = 'Netting Sets';
+
+            ran_nss_hea1 = exc_sh1.Range('A1:H1');
+            ran_nss_hea1.MergeCells = 1;
+
+            ran_nss_hea2 = exc_sh1.Range('A2:H2');
+            
+            ran_nss_hea = exc.Union(ran_nss_hea1, ...
+                ran_nss_hea2);
+            
+            ran_nss_id = exc_sh1.Range(['A3:A' nss_tab_len_str]);
+
+            ran_nss_vals = exc_sh1.Range(['B3:H' nss_tab_len_str]);
+            ran_nss_vals.NumberFormat = '#.##0,00';
+
+            ran_nss_txt = exc.Union(ran_nss_hea, ...
+                ran_nss_id);
+            ran_nss_txt.NumberFormat = '@';
+            
+            ran_nss_tab = exc.Union(ran_nss_txt, ...
+                ran_nss_vals);
+            ran_nss_tab.HorizontalAlignment = -4108;
+            ran_nss_tab.VerticalAlignment = -4108;
+            ran_nss_tab.Value = nss_tab;
+
+            exc_sh2 = exc_wb.Worksheets.Item(2);
+            exc_sh2.Name = 'Hedging Sets';
+
+            ran_hss_hea = exc_sh2.Range('A1:F1');
+            ran_hss_hea.HorizontalAlignment = -4108;
+
+            ran_hss_name = exc_sh2.Range(['A2:A' hss_tab_len_str]);
+            
+            ran_hss_txt = exc.Union(ran_hss_hea, ...
+                ran_hss_name);
+            ran_hss_txt.NumberFormat = '@';
+
+            ran_hss_vals = exc_sh2.Range(['B2:F' hss_tab_len_str]);
+            ran_hss_vals.NumberFormat = '#.##0,00';
+
+            ran_hss_tab = exc.Union(ran_hss_txt, ...
+                ran_hss_vals);
+            ran_hss_tab.HorizontalAlignment = -4108;
+            ran_hss_tab.VerticalAlignment = -4108;
+            ran_hss_tab.Value = hss_tab;
+
+            exc_sh3 = exc_wb.Worksheets.Item(3);
+            exc_sh3.Name = 'Risk Factors - PWC';
+
+            ran_rfs_pwc_hea1 = exc_sh3.Range('A1:E1');
+            ran_rfs_pwc_hea1.MergeCells = 1;
+            
+            ran_rfs_pwc_hea2 = exc_sh3.Range('A2:E2');
+            
+            ran_rfs_pwc_hea = exc.Union(ran_rfs_pwc_hea1, ...
+                ran_rfs_pwc_hea2);
+
+            if (rfs_tab_pwc_fill)
+                ran_rfs_pwc_name = exc_sh3.Range(['A3:A' rfs_tab_pwc_len_str]);
+
+                ran_rfs_pwc_txt = exc.Union(ran_rfs_pwc_hea, ...
+                    ran_rfs_pwc_name);
+                
+                ran_rfs_pwc_vals = exc_sh3.Range(['B3:E' rfs_tab_pwc_len_str]);
+                ran_rfs_pwc_vals.NumberFormat = '#.##0,00';
+                
+                ran_rfs_pwc_tab = exc.Union(ran_rfs_pwc_txt, ...
+                    ran_rfs_pwc_vals);
+            else
+                ran_rfs_pwc_txt = ran_rfs_pwc_hea;
+                ran_rfs_pwc_tab = ran_rfs_pwc_hea;
+            end
+            
+            ran_rfs_pwc_txt.NumberFormat = '@';
+
+            ran_rfs_pwc_tab.HorizontalAlignment = -4108;
+            ran_rfs_pwc_tab.VerticalAlignment = -4108;
+            ran_rfs_pwc_tab.Value = rfs_tab_pwc;
+
+            exc_sh3.Select();
+            exc_wb.Worksheets.Add([],exc_sh3);
+            
+            exc_sh4 = exc_wb.Worksheets.Item(4);
+            exc_sh4.Name = 'Risk Factors - SFM';
+
+            ran_rfs_sfm_hea1 = exc_sh4.Range('A1:K1');
+            ran_rfs_sfm_hea1.MergeCells = 1;
+            
+            ran_rfs_sfm_hea2 = exc_sh4.Range('A2:K2');
+            
+            ran_rfs_sfm_hea = exc.Union(ran_rfs_sfm_hea1, ...
+                ran_rfs_sfm_hea2);
+
+            if (rfs_tab_sfm_fill)
+                ran_rfs_sfm_name = exc_sh4.Range(['A3:A' rfs_tab_sfm_len_str]);
+
+                ran_rfs_sfm_txt = exc.Union(ran_rfs_sfm_hea, ...
+                    ran_rfs_sfm_name);
+                
+                ran_rfs_sfm_vals = exc_sh4.Range(['B3:K' rfs_tab_sfm_len_str]);
+                ran_rfs_sfm_vals.NumberFormat = '#.##0,00';
+                
+                ran_rfs_sfm_tab = exc.Union(ran_rfs_sfm_txt, ...
+                    ran_rfs_sfm_vals);
+            else
+                ran_rfs_sfm_txt = ran_rfs_sfm_hea;
+                ran_rfs_sfm_tab = ran_rfs_sfm_hea;
+            end
+            
+            ran_rfs_sfm_txt.NumberFormat = '@';
+
+            ran_rfs_sfm_tab.HorizontalAlignment = -4108;
+            ran_rfs_sfm_tab.VerticalAlignment = -4108;
+            ran_rfs_sfm_tab.Value = rfs_tab_sfm;
+
+            if (this.Handles.ResultCheckboxStyles.Value == 1)
+                clr_off = [1; 256; 65536];
+                clr_hea = Environment.ColorDisabled;
+                clr_hea = [clr_hea.getRed() clr_hea.getGreen() clr_hea.getBlue()] * clr_off;
+                clr_ns_std = Environment.ColorCcrNetsStd;
+                clr_ns_std = [clr_ns_std.getRed() clr_ns_std.getGreen() clr_ns_std.getBlue()] * clr_off; 
+                clr_ns_trd = Environment.ColorCcrNetsTrd;
+                clr_ns_trd = [clr_ns_trd.getRed() clr_ns_trd.getGreen() clr_ns_trd.getBlue()] * clr_off;
+                clr_trd_co = Environment.ColorCcrTrdsCo;
+                clr_trd_co = [clr_trd_co.getRed() clr_trd_co.getGreen() clr_trd_co.getBlue()] * clr_off;
+                clr_trd_cr = Environment.ColorCcrTrdsCr;
+                clr_trd_cr = [clr_trd_cr.getRed() clr_trd_cr.getGreen() clr_trd_cr.getBlue()] * clr_off;
+                clr_trd_eq = Environment.ColorCcrTrdsEq;
+                clr_trd_eq = [clr_trd_eq.getRed() clr_trd_eq.getGreen() clr_trd_eq.getBlue()] * clr_off;
+                clr_trd_fx = Environment.ColorCcrTrdsFx;
+                clr_trd_fx = [clr_trd_fx.getRed() clr_trd_fx.getGreen() clr_trd_fx.getBlue()] * clr_off;
+                clr_trd_ir = Environment.ColorCcrTrdsIr;
+                clr_trd_ir = [clr_trd_ir.getRed() clr_trd_ir.getGreen() clr_trd_ir.getBlue()] * clr_off;
+
+                ran_nss_tab.Borders.ColorIndex = 1;
+                ran_nss_tab.Borders.LineStyle = 1;
+                ran_nss_tab.Borders.Weight = 2;
+
+                ran_nss_hea.Font.Bold = true;
+                ran_nss_hea.Interior.Color = clr_hea;
+                ran_nss_hea.RowHeight = 22;
+                
+                ran_nss_hea1.Font.Size = 16;
+                ran_nss_hea2.Font.Size = 13;
+                
+                i_off = 3;
+                
+                for i = i_off:nss_tab_len
+                    i_off_str = num2str(i_off);
+                    ran_ns = exc_sh1.Range(['A' i_off_str ':H' i_off_str]);
+                    
+                    if (endsWith(nss_tab(i,1),'N'))
+                        ran_ns.Interior.Color = clr_ns_std;
+                    else
+                        ran_ns.Interior.Color = clr_ns_trd;
+                    end
+                    
+                    i_off = i_off + 1;
+                end
+                
+                ran_hss_tab.Borders.ColorIndex = 1;
+                ran_hss_tab.Borders.LineStyle = 1;
+                ran_hss_tab.Borders.Weight = 2;
+                
+                ran_hss_hea.Font.Bold = true;
+                ran_hss_hea.Interior.Color = clr_hea;
+                ran_hss_hea.Font.Size = 16;
+                ran_hss_hea.RowHeight = 22;
+                
+                i_off = 2;
+                
+                for i = i_off:hss_tab_len
+                    hs_name = hss_tab(i,1);
+                    
+                    i_off_str = num2str(i_off);
+                    ran_hs = exc_sh2.Range(['A' i_off_str ':F' i_off_str]);
+
+                    if (startsWith(hs_name,'COMMODITIES'))
+                        ran_hs.Interior.Color = clr_trd_co;
+                    elseif (startsWith(hs_name,'CREDIT'))
+                        ran_hs.Interior.Color = clr_trd_cr;
+                    elseif (startsWith(hs_name,'EQUITY'))
+                        ran_hs.Interior.Color = clr_trd_eq;
+                    elseif (startsWith(hs_name,'FOREIGN EXCHANGE'))
+                        ran_hs.Interior.Color = clr_trd_fx;
+                    else
+                        ran_hs.Interior.Color = clr_trd_ir;
+                    end
+                    
+                    i_off = i_off + 1;
+                end
+
+                ran_rfs_pwc_tab.Borders.ColorIndex = 1;
+                ran_rfs_pwc_tab.Borders.LineStyle = 1;
+                ran_rfs_pwc_tab.Borders.Weight = 2;
+                
+                ran_rfs_pwc_hea.Font.Bold = true;
+                ran_rfs_pwc_hea.Interior.Color = clr_hea;
+                ran_rfs_pwc_hea.RowHeight = 22;
+
+                ran_rfs_pwc_hea1.Font.Size = 16;
+                ran_rfs_pwc_hea2.Font.Size = 13;
+                
+                if (rfs_tab_pwc_fill)
+                    ran = exc.Union(ran_rfs_pwc_name, ...
+                        ran_rfs_pwc_vals);
+                    ran.Interior.Color = clr_trd_ir;
+                end
+
+                ran_rfs_sfm_tab.Borders.ColorIndex = 1;
+                ran_rfs_sfm_tab.Borders.LineStyle = 1;
+                ran_rfs_sfm_tab.Borders.Weight = 2;
+                
+                ran_rfs_sfm_hea.Font.Bold = true;
+                ran_rfs_sfm_hea.Interior.Color = clr_hea;
+                ran_rfs_sfm_hea.RowHeight = 22;
+
+                ran_rfs_sfm_hea1.Font.Size = 16;
+                ran_rfs_sfm_hea2.Font.Size = 13;
+                
+                if (rfs_tab_sfm_fill)
+                    i_off = 3;
+
+                    for i = i_off:rfs_tab_sfm_len
+                        rf_name = rfs_tab_sfm(i,2);
+
+                        i_off_str = num2str(i_off);
+                        ran_rf = exc_sh4.Range(['A' i_off_str ':K' i_off_str]);
+
+                        if (startsWith(rf_name,'COMMODITIES'))
+                            ran_rf.Interior.Color = clr_trd_co;
+                        elseif (startsWith(rf_name,'CREDIT'))
+                            ran_rf.Interior.Color = clr_trd_cr;
+                        elseif (startsWith(rf_name,'EQUITY'))
+                            ran_rf.Interior.Color = clr_trd_eq;
+                        else
+                            ran_rf.Interior.Color = clr_trd_fx;
+                        end
+
+                        i_off = i_off + 1;
+                    end
+                end
+            end
+            
+            exc_sh1.Columns.Item('A:H').AutoFit();
+            exc_sh2.Columns.Item('A:F').AutoFit();
+            exc_sh3.Columns.Item('A:E').AutoFit();
+            exc_sh4.Columns.Item('A:K').AutoFit();
+        end
+
         function res = FindConstrainedLength(this,vec) %#ok<INUSL>
             import('baseltools.*');
             

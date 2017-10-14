@@ -83,7 +83,6 @@ classdef (Sealed) BaselOP < BaselInterface
             han.LossCheckboxTransition.Callback = @this.LossCheckboxTransition_CheckedChanged;
             han.CapitalButtonDefault.Callback = @this.CapitalButtonDefault_Clicked;
             han.CapitalButtonExport.Callback = @this.CapitalButtonExport_Clicked;
-            han.CapitalButtonFile.Callback = @this.CapitalButtonFile_Clicked;
             han.CapitalCheckboxCompact.Callback = @this.CapitalCheckboxCompact_Clicked;
             han.CapitalGroupApproach.SelectionChangeFcn = @this.CapitalGroupApproach_SelectionChanged;
             
@@ -208,8 +207,6 @@ classdef (Sealed) BaselOP < BaselInterface
                     'RowsHeight',  37, ...
                     'Table',       {'TableOpCapCmpr'});
                 this.SetupBox(this.Handles.CapitalBoxExport);
-                this.Handles.CapitalTextboxFile.String = [' ' fullfile(pwd(),'\Results\ResultOP.xlsx') ' '];
-                this.SetupTextbox(this.Handles.CapitalTextboxFile);
                 this.Handles.CapitalButtonExport.Enable = 'on';
                 this.SetupBox(this.Handles.CapitalBoxInformation);
                 
@@ -257,8 +254,7 @@ classdef (Sealed) BaselOP < BaselInterface
         
         function CapitalButtonDefault_Clicked(this,obj,evd) %#ok<INUSD>
             obj.Enable = 'off';
-            
-            this.Handles.CapitalTextboxFile.String = [' ' fullfile(pwd(),'Result.xlsx') ' '];
+
             this.Handles.CapitalCheckboxCompact.Value = 0;
             this.Handles.CapitalCheckboxStyles.Value = 1;
             this.Handles.CapitalCheckboxLoss.Value = 0;
@@ -270,14 +266,24 @@ classdef (Sealed) BaselOP < BaselInterface
         function CapitalButtonExport_Clicked(this,obj,evd) %#ok<INUSD>
             obj.Enable = 'off';
             
+            file = ['\Results\ResultOP-' datestr(now(),'ddmmyyyy') '.xlsx'];
+            file = fullfile(pwd(),file);
+
+            if (exist(file,'file') == 2)
+                res = questdlg(['The destination file "' file '" already exist. Do you want to overwrite it?'],'Alert','Yes','No','No');
+                
+                if (strcmp(res,'No'))
+                    obj.Enable = 'on';
+                    return;
+                end
+            end
+
             import('java.awt.*');
             
             bar = waitbar(0,'Expoting Data...','CloseRequestFcn','','WindowStyle','modal');
             frm = Frame.getFrames();
             frm(end).setAlwaysOnTop(true);
-            
-            file = strtrim(this.Handles.CapitalTextboxFile.String);
-            
+
             err = '';
             
             try
@@ -299,24 +305,6 @@ classdef (Sealed) BaselOP < BaselInterface
             
             waitbar(1,bar);
             delete(bar);
-            
-            obj.Enable = 'on';
-        end
-        
-        function CapitalButtonFile_Clicked(this,obj,evd) %#ok<INUSD>
-            obj.Enable = 'off';
-            
-            [name,path] = uiputfile({'*.xls;*.xlsx','Excel Spreadsheets (*.xls;*.xlsx)'},'Select Destination',pwd());
-            
-            if (name ~= 0)
-                file = fullfile(path,name);
-                
-                if (~endsWith(file,'.xls') && ~endsWith(file,'.xlsx'))
-                    file = [file '.xls'];
-                end
-                
-                this.Handles.CapitalTextboxFile.String = [' ' file ' '];
-            end
             
             obj.Enable = 'on';
         end
@@ -763,59 +751,74 @@ classdef (Sealed) BaselOP < BaselInterface
         
         function ExportData(this,file)
             exc = actxserver('Excel.Application');
-            exc.DisplayAlerts = false;
-            exc.Interactive = false;
-            exc.ScreenUpdating = false;
-            exc.UserControl = false;
-            exc.Visible = false;
+            
+            try
+                exc.DisplayAlerts = false;
+                exc.Interactive = false;
+                exc.ScreenUpdating = false;
+                exc.UserControl = false;
+                exc.Visible = false;
 
-            exc_wb = exc.Workbooks.Add();
+                exc_wb = exc.Workbooks.Add();
 
-            jpan_cap_rslt = javaObjectEDT(findjobj(this.Handles.CapitalTableResult));
-            jtab_cap_rslt = javaObjectEDT(jpan_cap_rslt.getViewport().getView());
-            jtab_cap_rslt_cell = cell(jtab_cap_rslt.getModel().getData());
+                jpan_cap_rslt = javaObjectEDT(findjobj(this.Handles.CapitalTableResult));
+                jtab_cap_rslt = javaObjectEDT(jpan_cap_rslt.getViewport().getView());
+                jtab_cap_rslt_cell = cell(jtab_cap_rslt.getModel().getData());
 
-            ilm = jtab_cap_rslt_cell{3,2};
-            k_sma = jtab_cap_rslt_cell{4,2};
-            k_b2 = jtab_cap_rslt_cell{5,2};
+                ilm = jtab_cap_rslt_cell{3,2};
+                k_sma = jtab_cap_rslt_cell{4,2};
+                k_b2 = jtab_cap_rslt_cell{5,2};
 
-            exc_sh1 = exc_wb.Worksheets.Item(1);
+                exc_sh1 = exc_wb.Worksheets.Item(1);
 
-            if (this.Handles.CapitalCheckboxCompact.Value == 0)
-                this.ExportDataResult_Full(exc,exc_sh1,ilm,k_sma);
+                if (this.Handles.CapitalCheckboxCompact.Value == 0)
+                    this.ExportDataResult_Full(exc,exc_sh1,ilm,k_sma);
 
-                exc_sh = exc_wb.Worksheets.Item(3);
+                    exc_sh2 = exc_wb.Worksheets.Item(3);
 
-                if (this.Handles.CapitalCheckboxComparison.Value == 0)
-                    exc_sh.Delete();
+                    if (this.Handles.CapitalCheckboxComparison.Value == 0)
+                        exc_sh2.Delete();
+                    else
+                        this.ExportDataComparison(exc,exc_sh2,k_b2);
+                    end
+
+                    exc_sh3 = exc_wb.Worksheets.Item(2);
+
+                    if (this.Handles.CapitalCheckboxLoss.Value == 0)
+                        exc_sh3.Delete();
+                    else
+                        this.ExportDataLoss(exc,exc_sh3);
+                    end
                 else
-                    this.ExportDataComparison(exc,exc_sh,k_b2);
+                    this.ExportDataResult_Compact(exc,exc_sh1,ilm,k_sma,k_b2);
+                    exc_wb.Worksheets.Item(3).Delete();
+                    exc_wb.Worksheets.Item(2).Delete();
                 end
 
-                exc_sh = exc_wb.Worksheets.Item(2);
+                exc_sh1.Activate();
 
-                if (this.Handles.CapitalCheckboxLoss.Value == 0)
-                    exc_sh.Delete();
-                else
-                    this.ExportDataLoss(exc,exc_sh);
+                path = fileparts(file);
+                mkdir(path);
+
+                exc_wb.SaveAs(file);
+
+                exc_wb.Close();
+                exc.Quit();
+                
+                delete(exc);
+            catch e
+                try
+                    exc.Quit();
+                catch
                 end
-            else
-                this.ExportDataResult_Compact(exc,exc_sh1,ilm,k_sma,k_b2);
-                exc_wb.Worksheets.Item(3).Delete();
-                exc_wb.Worksheets.Item(2).Delete();
+                
+                try
+                    delete(exc);
+                catch
+                end
+                
+                rethrow(e);
             end
-
-            exc_sh1.Activate();
-
-            path = fileparts(file);
-            mkdir(path);
-
-            exc_wb.SaveAs(file);
-            
-            exc_wb.Close();
-            exc.Quit();
-            
-            delete(exc);
         end
         
         function ExportDataComparison(this,exc,exc_sh,k)
@@ -911,13 +914,10 @@ classdef (Sealed) BaselOP < BaselInterface
             loss = [
                 this.Handles.LossTableDataset.ColumnName';
                 jtab_loss_ds_cell
-                ];
+            ];
             loss_len = num2str(size(loss,1));
             
             exc_sh.Name = 'Loss Dataset';
-            exc_sh.Columns.Item('A:b').ColumnWidth = 14;
-            exc_sh.Columns.Item('C:D').ColumnWidth = 22;
-            exc_sh.Columns.Item('E:F').ColumnWidth = 29;
             
             ran_tab = exc_sh.Range(['A1:F' loss_len]);
             ran_tab.HorizontalAlignment = -4108;
@@ -927,7 +927,7 @@ classdef (Sealed) BaselOP < BaselInterface
             exc_sh.Range(['A2:A' loss_len]).NumberFormat = '0';
             exc_sh.Range(['C2:D' loss_len]).NumberFormat = '@';
             exc_sh.Range(['E2:F' loss_len]).NumberFormat = '#.##0,00';
-            
+
             if (this.Handles.CapitalCheckboxStyles.Value == 1)
                 import('baseltools.*');
                 
@@ -993,6 +993,8 @@ classdef (Sealed) BaselOP < BaselInterface
                     ran_100.Interior.Color = clr_100;
                 end
             end
+            
+            exc_sh.Columns.Item('A:F').AutoFit();
         end
         
         function ExportDataResult_Compact(this,exc,exc_sh,ilm,k_sma,k_b2)
@@ -1008,7 +1010,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 jtab_bus_rslt_cell(1:3,:);
                 vars_sep;
                 jtab_bus_rslt_cell(4:5,:);
-                ];
+            ];
             
             jpan_bus_comp = javaObjectEDT(findjobj(this.Handles.BusinessTableComponent));
             jtab_bus_comp = javaObjectEDT(jpan_bus_comp.getViewport().getView());
@@ -1051,7 +1053,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 end
             end
             
-            exc_sh.Name = ['Result ' datestr(now(),'dd-mm-yyyy')];
+            exc_sh.Name = 'Result';
             exc_sh.Columns.Item('A:D').ColumnWidth = 12;
             exc_sh.Columns.Item('C').ColumnWidth = 20;
             
@@ -1223,7 +1225,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 {[] 'Services Component' [] [] []};
                 data_hea;
                 jtab_bus_data_cell(12:end,:)
-                ];
+            ];
             
             jpan_bus_rslt = javaObjectEDT(findjobj(this.Handles.BusinessTableResult));
             jtab_bus_rslt = javaObjectEDT(jpan_bus_rslt.getViewport().getView());
@@ -1234,7 +1236,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 jtab_bus_rslt_cell(1:3,:);
                 vars_sep;
                 jtab_bus_rslt_cell(4:5,:);
-                ];
+            ];
             
             jpan_bus_comp = javaObjectEDT(findjobj(this.Handles.BusinessTableComponent));
             jtab_bus_comp = javaObjectEDT(jpan_bus_comp.getViewport().getView());
@@ -1263,7 +1265,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 vars(9,:) = {'K' k};
             end
             
-            exc_sh.Name = ['Result ' datestr(now(),'dd-mm-yyyy')];
+            exc_sh.Name = 'Result';
             exc_sh.Columns.Item('A:J').ColumnWidth = 12;
             exc.Union(exc_sh.Columns.Item('C:F'), ...
                 exc_sh.Columns.Item('I')).ColumnWidth = 20;
