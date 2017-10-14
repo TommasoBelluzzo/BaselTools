@@ -27,9 +27,13 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             warning('off','all');
+
+            javaaddpath(fullfile(pwd(),'BaselTools.jar'));
+            
+            import('baseltools.*');
+            Environment.CleanHeap();
             
             com.mathworks.mwswing.MJUtilities.initJIDE();
-            javaaddpath(fullfile(pwd(),'BaselTools.jar'));
             
             this.Initialized = false;
             
@@ -62,6 +66,9 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.Result = [];
             this.ResultEAD = [];
             this.Trades = [];
+            
+            import('baseltools.*');
+            Environment.CleanHeap();
         end
     end
     

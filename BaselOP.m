@@ -23,9 +23,13 @@ classdef (Sealed) BaselOP < BaselInterface
             end
             
             warning('off','all');
+
+            javaaddpath(fullfile(pwd(),'BaselTools.jar'));
+            
+            import('baseltools.*');
+            Environment.CleanHeap();
             
             com.mathworks.mwswing.MJUtilities.initJIDE();
-            javaaddpath(fullfile(pwd(),'BaselTools.jar'));
             
             this.Initialized = false;
             this.Transition = false;
@@ -56,6 +60,9 @@ classdef (Sealed) BaselOP < BaselInterface
             this.Modifiers = [];
             this.Transition = [];
             this.Year = [];
+            
+            import('baseltools.*');
+            Environment.CleanHeap();
         end
     end
     
