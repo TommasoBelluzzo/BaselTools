@@ -23,7 +23,7 @@ classdef (Sealed) BaselOP < BaselInterface
             end
             
             warning('off','all');
-
+            
             javaaddpath(fullfile(pwd(),'BaselTools.jar'));
             
             import('baseltools.*');
@@ -160,9 +160,9 @@ classdef (Sealed) BaselOP < BaselInterface
             tab_capi_data_col{3} = sprintf('Value %d',(this.Year - 2));
             tab_capi_data_col{4} = sprintf('Value %d',(this.Year - 1));
             
-            tab_capi_res = cell(5,2);
-            tab_capi_res(:,1) = {'BIC' 'LC' 'ILM' 'K SMA' 'K BII'};
-            tab_capi_res([1 4 5],2) = {0};
+            tab_capi_res = cell(7,2);
+            tab_capi_res(:,1) = {'BIC' 'LC' 'ILM' 'K SMA' 'RWA SMA' 'K BII' 'RWA BII'};
+            tab_capi_res([1 4:7],2) = {0};
             tab_capi_res([2 3],2) = {'-'};
             
             tab_capi_com = cell(8,4);
@@ -181,30 +181,37 @@ classdef (Sealed) BaselOP < BaselInterface
                     'Editor',      {'EditorCurrency' 0 1e12 0}, ...
                     'Renderer',    {'RendererOpBusData'}, ...
                     'Table',       {'TableOpBusData'});
+                
                 this.SetupTable(this.Handles.BusinessTableResult, ...
                     'Data',        tab_bus_agg, ...
                     'Renderer',    {'RendererOpBusRslt'}, ...
                     'RowsHeight',  60);
+                
                 this.SetupTable(this.Handles.BusinessTableComponent, ...
                     'Data',        tab_bus_com, ...
                     'Renderer',    {'RendererOpBusComp'}, ...
                     'RowsHeight',  60);
+                
                 this.SetupBox(this.Handles.BusinessBox);
                 
                 this.Handles.LossTextboxYear.String = num2str(yea);
                 this.Handles.LossTextboxYear.UserData = yea;
+                
                 this.SetupTable(this.Handles.LossTableDataset, ...
                     'RowHeaderWidth',    56, ...
                     'Sorting',           2, ...
                     'VerticalScrollbar', true);
+                
                 this.SetupTable(this.Handles.LossTableResult, ...
                     'RowsHeight',        75);
+                
                 this.SetupBox(this.Handles.LossBox);
                 
                 this.SetupTable(this.Handles.CapitalTableResult, ...
                     'Data',        tab_capi_res, ...
                     'Renderer',    {'RendererOpCapRslt'}, ...
-                    'RowsHeight',  60);
+                    'RowsHeight',  42);
+                
                 this.Handles.CapitalTableComparison.ColumnName = tab_capi_data_col;
                 this.SetupTable(this.Handles.CapitalTableComparison, ...
                     'Data',        tab_capi_com, ...
@@ -213,9 +220,11 @@ classdef (Sealed) BaselOP < BaselInterface
                     'Renderer',    {'RendererOpCapCmpr'}, ...
                     'RowsHeight',  37, ...
                     'Table',       {'TableOpCapCmpr'});
+                
                 this.SetupBox(this.Handles.CapitalBoxExport);
-                this.Handles.CapitalButtonExport.Enable = 'on';
                 this.SetupBox(this.Handles.CapitalBoxInformation);
+                
+                this.Handles.CapitalButtonExport.Enable = 'on';
                 
                 this.Initialized = true;
             catch e
@@ -261,7 +270,7 @@ classdef (Sealed) BaselOP < BaselInterface
         
         function CapitalButtonDefault_Clicked(this,obj,evd) %#ok<INUSD>
             obj.Enable = 'off';
-
+            
             this.Handles.CapitalCheckboxCompact.Value = 0;
             this.Handles.CapitalCheckboxStyles.Value = 1;
             this.Handles.CapitalCheckboxLoss.Value = 0;
@@ -275,7 +284,7 @@ classdef (Sealed) BaselOP < BaselInterface
             
             file = ['\Results\ResultOP-' datestr(now(),'ddmmyyyy') '.xlsx'];
             file = fullfile(pwd(),file);
-
+            
             if (exist(file,'file') == 2)
                 res = questdlg(['The destination file "' file '" already exist. Do you want to overwrite it?'],'Alert','Yes','No','No');
                 
@@ -284,13 +293,13 @@ classdef (Sealed) BaselOP < BaselInterface
                     return;
                 end
             end
-
+            
             import('java.awt.*');
             
             bar = waitbar(0,'Expoting Data...','CloseRequestFcn','','WindowStyle','modal');
             frm = Frame.getFrames();
             frm(end).setAlwaysOnTop(true);
-
+            
             err = '';
             
             try
@@ -649,7 +658,6 @@ classdef (Sealed) BaselOP < BaselInterface
             opts = setvaropts(opts,'Date','InputFormat','dd/MM/yyyy');
             opts = setvaropts(opts,'BusinessLine','Categories',{'AG' 'AM' 'CB' 'CF' 'PS' 'RBA' 'RBR' 'TS'});
             opts = setvaropts(opts,'RiskCategory','Categories',{'BDSF' 'CPBP' 'DPA' 'EDPM' 'EF' 'EPWS' 'IF'});
-            
             data = readtable(file,opts);
         end
         
@@ -765,50 +773,52 @@ classdef (Sealed) BaselOP < BaselInterface
                 exc.ScreenUpdating = false;
                 exc.UserControl = false;
                 exc.Visible = false;
-
+                
                 exc_wb = exc.Workbooks.Add();
-
+                
                 jpan_cap_rslt = javaObjectEDT(findjobj(this.Handles.CapitalTableResult));
                 jtab_cap_rslt = javaObjectEDT(jpan_cap_rslt.getViewport().getView());
                 jtab_cap_rslt_cell = cell(jtab_cap_rslt.getModel().getData());
-
+                
                 ilm = jtab_cap_rslt_cell{3,2};
                 k_sma = jtab_cap_rslt_cell{4,2};
-                k_b2 = jtab_cap_rslt_cell{5,2};
-
+                rwa_sma = jtab_cap_rslt_cell{5,2};
+                k_b2 = jtab_cap_rslt_cell{6,2};
+                rwa_b2 = jtab_cap_rslt_cell{7,2};
+                
                 exc_sh1 = exc_wb.Worksheets.Item(1);
-
+                
                 if (this.Handles.CapitalCheckboxCompact.Value == 0)
-                    this.ExportDataResult_Full(exc,exc_sh1,ilm,k_sma);
-
+                    this.ExportDataResult_Full(exc,exc_sh1,ilm,k_sma,rwa_sma);
+                    
                     exc_sh2 = exc_wb.Worksheets.Item(3);
-
+                    
                     if (this.Handles.CapitalCheckboxComparison.Value == 0)
                         exc_sh2.Delete();
                     else
-                        this.ExportDataComparison(exc,exc_sh2,k_b2);
+                        this.ExportDataComparison(exc,exc_sh2,k_b2,rwa_b2);
                     end
-
+                    
                     exc_sh3 = exc_wb.Worksheets.Item(2);
-
+                    
                     if (this.Handles.CapitalCheckboxLoss.Value == 0)
                         exc_sh3.Delete();
                     else
                         this.ExportDataLoss(exc,exc_sh3);
                     end
                 else
-                    this.ExportDataResult_Compact(exc,exc_sh1,ilm,k_sma,k_b2);
+                    this.ExportDataResult_Compact(exc,exc_sh1,ilm,k_sma,rwa_sma,k_b2,rwa_b2);
                     exc_wb.Worksheets.Item(3).Delete();
                     exc_wb.Worksheets.Item(2).Delete();
                 end
-
+                
                 exc_sh1.Activate();
-
+                
                 path = fileparts(file);
                 mkdir(path);
-
+                
                 exc_wb.SaveAs(file);
-
+                
                 exc_wb.Close();
                 exc.Quit();
                 
@@ -828,7 +838,7 @@ classdef (Sealed) BaselOP < BaselInterface
             end
         end
         
-        function ExportDataComparison(this,exc,exc_sh,k)
+        function ExportDataComparison(this,exc,exc_sh,k,rwa)
             jpan_cap_cmpr = javaObjectEDT(findjobj(this.Handles.CapitalTableComparison));
             jtab_cap_cmpr = javaObjectEDT(jpan_cap_cmpr.getViewport().getView());
             jtab_cap_cmpr_cell = cell(jtab_cap_cmpr.getModel().getData());
@@ -845,7 +855,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 {[] ['Approach: ' app] [] []};
                 ['Year'; strrep(this.Handles.CapitalTableComparison.ColumnName(2:end),'Value ','')]';
                 jtab_cap_cmpr_cell
-                ];
+            ];
             
             exc_sh.Name = 'BII Comparison';
             exc_sh.Columns.Item('A:I').ColumnWidth = 20;
@@ -854,9 +864,13 @@ classdef (Sealed) BaselOP < BaselInterface
                 exc_sh.Columns.Item('I')).ColumnWidth = 12;
             
             ran_tab_tit = exc_sh.Range('B2:E2');
+
             ran_tab_hea = exc.Union(exc_sh.Range('B3:E3'), ...
                 exc_sh.Range('B4:B11'));
+            
             ran_tab_data = exc_sh.Range('C4:E11');
+            ran_tab_data.NumberFormat = '#.##0,00';
+            
             ran_tab = exc.Union(ran_tab_tit, ...
                 ran_tab_hea, ...
                 ran_tab_data);
@@ -866,28 +880,29 @@ classdef (Sealed) BaselOP < BaselInterface
             ran_tab.Value = cmp;
             
             ran_tab_tit.MergeCells = 1;
-            ran_tab_data.NumberFormat = '#.##0,00';
+
+            ran_res_tit = exc_sh.Range('G2:G3');
             
-            ran_res_tit = exc_sh.Range('G2');
-            ran_res_data = exc_sh.Range('H2');
-            ran_res = exc.Union(ran_res_tit, ...
-                ran_res_data);
-            
-            ran_res.HorizontalAlignment = -4108;
-            ran_res.VerticalAlignment = -4108;
-            ran_res.Value = {'K' k [] []};
-            
-            ran_res_data.MergeCells = 1;
+            ran_res_data = exc_sh.Range('H2:H3');
             ran_res_data.NumberFormat = '#.##0,00';
             
+            ran_res = exc.Union(ran_res_tit, ...
+                ran_res_data);
+            ran_res.HorizontalAlignment = -4108;
+            ran_res.VerticalAlignment = -4108;
+            ran_res.Value = {'K' k; 'RWA' rwa};
+            
+            ran_txt = exc.Union(ran_tab_tit, ...
+                ran_tab_hea, ...
+                ran_res_tit);
+            ran_txt.NumberFormat = '@';
+
             if (this.Handles.CapitalCheckboxStyles.Value == 1)
                 import('baseltools.*');
                 
                 clr_off = [1; 256; 65536];
-                clr_tab = Environment.ColorOpCapK2;
+                clr_tab = Environment.ColorOpCapB2;
                 clr_tab = [clr_tab.getRed() clr_tab.getGreen() clr_tab.getBlue()] * clr_off;
-                clr_res = Environment.ColorOpCapK1;
-                clr_res = [clr_res.getRed() clr_res.getGreen() clr_res.getBlue()] * clr_off;
                 
                 ran_all = exc.Union(ran_tab, ...
                     ran_res);
@@ -907,7 +922,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 exc.Union(ran_tab_tit, ...
                     ran_tab_hea).Interior.Color = clr_tab;
                 
-                ran_res_tit.Interior.Color = clr_res;
+                ran_res_tit.Interior.Color = clr_tab;
             end
         end
         
@@ -934,7 +949,7 @@ classdef (Sealed) BaselOP < BaselInterface
             exc_sh.Range(['A2:A' loss_len]).NumberFormat = '0';
             exc_sh.Range(['C2:D' loss_len]).NumberFormat = '@';
             exc_sh.Range(['E2:F' loss_len]).NumberFormat = '#.##0,00';
-
+            
             if (this.Handles.CapitalCheckboxStyles.Value == 1)
                 import('baseltools.*');
                 
@@ -1004,7 +1019,7 @@ classdef (Sealed) BaselOP < BaselInterface
             exc_sh.Columns.Item('A:F').AutoFit();
         end
         
-        function ExportDataResult_Compact(this,exc,exc_sh,ilm,k_sma,k_b2)
+        function ExportDataResult_Compact(this,exc,exc_sh,ilm,k_sma,rwa_sma,k_b2,rwa_b2)
             has_cmpr = (this.Handles.CapitalCheckboxComparison.Value == 1);
             has_loss = ~ischar(ilm);
             
@@ -1032,64 +1047,70 @@ classdef (Sealed) BaselOP < BaselInterface
                 end
             end
             
+            vars(8,:) = vars_sep;
+            
             if (has_loss)
                 jpan_loss_rslt = javaObjectEDT(findjobj(this.Handles.LossTableResult));
                 jtab_loss_rslt = javaObjectEDT(jpan_loss_rslt.getViewport().getView());
-                
-                vars(8,:) = vars_sep;
+
                 vars(9:12,:) = cell(jtab_loss_rslt.getModel().getData());
                 vars(13,:) = vars_sep;
                 vars(14,:) = {'ILM' ilm};
                 
                 if (has_cmpr)
                     vars(15,:) = {'K SMA' k_sma};
-                    vars(16,:) = vars_sep;
-                    vars(17,:) = {'K BII' k_b2};
+                    vars(16,:) = {'RWA SMA' rwa_sma};
+                    vars(17,:) = vars_sep;
+                    vars(18,:) = {'K BII' k_b2};
+                    vars(19,:) = {'RWA BII' rwa_b2};
                 else
                     vars(15,:) = {'K' k_sma};
+                    vars(16,:) = {'RWA' rwa_sma};
                 end
             else
-                vars(8,:) = vars_sep;
-                
                 if (has_cmpr)
                     vars(9,:) = {'K SMA' k_sma};
-                    vars(10,:) = vars_sep;
-                    vars(11,:) = {'K BII' k_b2};
+                    vars(10,:) = {'RWA SMA' rwa_sma};
+                    vars(11,:) = vars_sep;
+                    vars(12,:) = {'K BII' k_b2};
+                    vars(13,:) = {'RWA BII' rwa_b2};
                 else
                     vars(9,:) = {'K' k_sma};
+                    vars(10,:) = {'RWA' rwa_sma};
                 end
             end
             
             exc_sh.Name = 'Result';
             exc_sh.Columns.Item('A:D').ColumnWidth = 12;
+            exc_sh.Columns.Item('B').ColumnWidth = 14;
             exc_sh.Columns.Item('C').ColumnWidth = 20;
             
             if (has_loss)
-                ran = exc_sh.Range('B2:C16');
+                ran = exc_sh.Range('B2:C17');
                 ran_data = exc.Union(exc_sh.Range('C2:C4'), ...
                     exc_sh.Range('C6:C8'), ...
                     exc_sh.Range('C10:C13'), ...
-                    exc_sh.Range('C16'));
+                    exc_sh.Range('C16:C17'));
                 
                 if (has_cmpr)
                     ran = exc.Union(ran, ...
-                        exc_sh.Range('B17:C18'));
+                        exc_sh.Range('B18:C20'));
                     ran_data = exc.Union(ran_data, ...
-                        exc_sh.Range('C18'));
+                        exc_sh.Range('C19:C20'));
                 end
                 
                 exc_sh.Range('C15').NumberFormat = '#.##0,0000';
             else
-                ran = exc_sh.Range('B2:C10');
+                ran = exc_sh.Range('B2:C11');
                 ran_data = exc.Union(exc_sh.Range('C2:C4'), ...
                     exc_sh.Range('C6:C8'), ...
-                    exc_sh.Range('C10'));
+                    exc_sh.Range('C10:C11'));
                 
                 if (has_cmpr)
                     ran = exc.Union(ran, ...
-                        exc_sh.Range('B11:C12'));
+                        exc_sh.Range('B12:C14'));
                     ran_data = exc.Union(ran_data, ...
-                        exc_sh.Range('C12'));
+                        exc_sh.Range('C13:C14'));
                 end
             end
             
@@ -1109,7 +1130,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 clr_ubi = Environment.ColorOpBusUBI;
                 clr_bi = Environment.ColorOpBusBI;
                 clr_bic = Environment.ColorOpBusBIC;
-                clr_ksma = Environment.ColorOpCapK1;
+                clr_sma = Environment.ColorOpCapSMA;
                 
                 ran_ildc = exc_sh.Range('B2');
                 ran_fc = exc_sh.Range('B3');
@@ -1122,48 +1143,48 @@ classdef (Sealed) BaselOP < BaselInterface
                     ran_vars = exc.Union(exc_sh.Range('B2:C4'), ...
                         exc_sh.Range('B6:C8'), ...
                         exc_sh.Range('B10:C13'), ...
-                        exc_sh.Range('B15:C16'));
+                        exc_sh.Range('B15:C17'));
                     
                     ran_lall = exc_sh.Range('B10');
                     ran_l10 = exc_sh.Range('B11');
                     ran_l100 = exc_sh.Range('B12');
                     ran_lc = exc_sh.Range('B13');
                     ran_ilm = exc_sh.Range('B15');
-                    ran_ksma = exc_sh.Range('B16');
+                    ran_sma = exc_sh.Range('B16:B17');
                     
                     ran_tit_oth = exc.Union(ran_lall, ...
                         ran_l10, ...
                         ran_l100, ...
                         ran_lc, ...
                         ran_ilm, ...
-                        ran_ksma);
+                        ran_sma);
                     
                     if (has_cmpr)
                         ran_vars = exc.Union(ran_vars, ...
-                            exc_sh.Range('B18:C18'));
+                            exc_sh.Range('B19:C20'));
                         
-                        ran_kb2 = exc_sh.Range('B18');
+                        ran_b2 = exc_sh.Range('B19:B20');
                         
                         ran_tit_oth = exc.Union(ran_tit_oth, ...
-                            ran_kb2);
+                            ran_b2);
                     end
                 else
                     ran_vars = exc.Union(exc_sh.Range('B2:C4'), ...
                         exc_sh.Range('B6:C8'), ...
-                        exc_sh.Range('B10:C10'));
+                        exc_sh.Range('B10:C11'));
                     
-                    ran_ksma = exc_sh.Range('B10');
+                    ran_sma = exc_sh.Range('B10:B11');
                     
-                    ran_tit_oth = ran_ksma;
+                    ran_tit_oth = ran_sma;
                     
                     if (has_cmpr)
                         ran_vars = exc.Union(ran_vars, ...
-                            exc_sh.Range('B12:C12'));
+                            exc_sh.Range('B13:C14'));
                         
-                        ran_kb2 = exc_sh.Range('B12');
+                        ran_b2 = exc_sh.Range('B13:B14');
                         
                         ran_tit_oth = exc.Union(ran_tit_oth, ...
-                            ran_kb2);
+                            ran_b2);
                     end
                 end
                 
@@ -1203,16 +1224,16 @@ classdef (Sealed) BaselOP < BaselInterface
                     ran_ilm.Interior.Color = [clr_ilm.getRed() clr_ilm.getGreen() clr_ilm.getBlue()] * clr_off;
                 end
                 
-                ran_ksma.Interior.Color = [clr_ksma.getRed() clr_ksma.getGreen() clr_ksma.getBlue()] * clr_off;
+                ran_sma.Interior.Color = [clr_sma.getRed() clr_sma.getGreen() clr_sma.getBlue()] * clr_off;
                 
                 if (has_cmpr)
-                    clr_kb2 = Environment.ColorOpCapK2;
-                    ran_kb2.Interior.Color = [clr_kb2.getRed() clr_kb2.getGreen() clr_kb2.getBlue()] * clr_off;
+                    clr_b2 = Environment.ColorOpCapB2;
+                    ran_b2.Interior.Color = [clr_b2.getRed() clr_b2.getGreen() clr_b2.getBlue()] * clr_off;
                 end
             end
         end
         
-        function ExportDataResult_Full(this,exc,exc_sh,ilm,k)
+        function ExportDataResult_Full(this,exc,exc_sh,ilm,k,rwa)
             has_loss = ~ischar(ilm);
             
             jpan_bus_data = javaObjectEDT(findjobj(this.Handles.BusinessTableData));
@@ -1239,6 +1260,7 @@ classdef (Sealed) BaselOP < BaselInterface
             jtab_bus_rslt_cell = cell(jtab_bus_rslt.getModel().getData());
             
             vars_sep = {[] []};
+
             vars = [
                 jtab_bus_rslt_cell(1:3,:);
                 vars_sep;
@@ -1267,9 +1289,11 @@ classdef (Sealed) BaselOP < BaselInterface
                 vars(13,:) = vars_sep;
                 vars(14,:) = {'ILM' ilm};
                 vars(15,:) = {'K' k};
+                vars(16,:) = {'RWA' rwa};
             else
                 vars(8,:) = vars_sep;
                 vars(9,:) = {'K' k};
+                vars(10,:) = {'RWA' rwa};
             end
             
             exc_sh.Name = 'Result';
@@ -1277,7 +1301,7 @@ classdef (Sealed) BaselOP < BaselInterface
             exc.Union(exc_sh.Columns.Item('C:F'), ...
                 exc_sh.Columns.Item('I')).ColumnWidth = 20;
             
-            ran_full = exc_sh.Range('B2:F21');
+            ran_tab_full = exc_sh.Range('B2:F21');
             
             ran_tab_ildc_tit = exc_sh.Range('B2:F2');
             ran_tab_ildc_hea = exc.Union(exc_sh.Range('B3:F3'), ...
@@ -1303,9 +1327,9 @@ classdef (Sealed) BaselOP < BaselInterface
                 ran_tab_sc_hea, ...
                 ran_tab_sc_data);
             
-            ran_full.HorizontalAlignment = -4108;
-            ran_full.VerticalAlignment = -4108;
-            ran_full.Value = data;
+            ran_tab_full.HorizontalAlignment = -4108;
+            ran_tab_full.VerticalAlignment = -4108;
+            ran_tab_full.Value = data;
             
             ran_tab_tits = exc.Union(ran_tab_ildc_tit, ...
                 ran_tab_fc_tit, ...
@@ -1317,26 +1341,26 @@ classdef (Sealed) BaselOP < BaselInterface
                 ran_tab_sc_data).NumberFormat = '#.##0,00';
             
             if (has_loss)
-                ran_vars = exc_sh.Range('H2:I16');
+                ran_vars = exc_sh.Range('H2:I17');
                 ran_vars_tabs = exc.Union(exc_sh.Range('H2:I4'), ...
                     exc_sh.Range('H6:I8'), ...
                     exc_sh.Range('H10:I13'), ...
-                    exc_sh.Range('H15:I16'));
+                    exc_sh.Range('H15:I17'));
                 
                 exc.Union(exc_sh.Range('I2:I4'), ...
                     exc_sh.Range('I6:I8'), ...
                     exc_sh.Range('I10:I13'), ...
-                    exc_sh.Range('I16')).NumberFormat = '#.##0,00';
+                    exc_sh.Range('I16:I17')).NumberFormat = '#.##0,00';
                 exc_sh.Range('I15').NumberFormat = '#.##0,0000';
             else
-                ran_vars = exc_sh.Range('H2:I10');
+                ran_vars = exc_sh.Range('H2:I11');
                 ran_vars_tabs = exc.Union(exc_sh.Range('H2:I4'), ...
                     exc_sh.Range('H6:I8'), ...
-                    exc_sh.Range('H10:I10'));
+                    exc_sh.Range('H10:I11'));
                 
                 exc.Union(exc_sh.Range('I2:I4'), ...
                     exc_sh.Range('I6:I8'), ...
-                    exc_sh.Range('I11')).NumberFormat = '#.##0,00';
+                    exc_sh.Range('I10:I11')).NumberFormat = '#.##0,00';
             end
             
             ran_vars.HorizontalAlignment = -4108;
@@ -1353,7 +1377,9 @@ classdef (Sealed) BaselOP < BaselInterface
                 clr_ubi = Environment.ColorOpBusUBI;
                 clr_bi = Environment.ColorOpBusBI;
                 clr_bic = Environment.ColorOpBusBIC;
-                clr_k = Environment.ColorOpCapK1;
+                
+                clr_sma = Environment.ColorOpCapSMA;
+                clr_sma = [clr_sma.getRed() clr_sma.getGreen() clr_sma.getBlue()] * clr_off;
                 
                 ran_vars_ildc = exc_sh.Range('H2');
                 ran_vars_fc = exc_sh.Range('H3');
@@ -1369,19 +1395,24 @@ classdef (Sealed) BaselOP < BaselInterface
                     ran_vars_lc = exc_sh.Range('H13');
                     ran_vars_ilm = exc_sh.Range('H15');
                     ran_vars_k = exc_sh.Range('H16');
+                    ran_vars_rwa = exc_sh.Range('H17');
                     
                     ran_tits_oth = exc.Union(ran_vars_lall, ...
                         ran_vars_l10, ...
                         ran_vars_l100, ...
                         ran_vars_lc, ...
                         ran_vars_ilm, ...
-                        ran_vars_k);
+                        ran_vars_k, ...
+                        ran_vars_rwa);
                 else
                     ran_vars_k = exc_sh.Range('H10');
-                    ran_tits_oth = ran_vars_k;
+                    ran_vars_rwa = exc_sh.Range('H11');
+                    
+                    ran_tits_oth = exc.Union(ran_vars_k, ...
+                        ran_vars_rwa);
                 end
                 
-                ran_full.RowHeight = 22;
+                ran_tab_full.RowHeight = 22;
                 
                 ran_tabs = exc.Union(ran_tab_ildc, ...
                     ran_tab_fc, ...
@@ -1438,7 +1469,8 @@ classdef (Sealed) BaselOP < BaselInterface
                     ran_vars_ilm.Interior.Color = [clr_ilm.getRed() clr_ilm.getGreen() clr_ilm.getBlue()] * clr_off;
                 end
                 
-                ran_vars_k.Interior.Color = [clr_k.getRed() clr_k.getGreen() clr_k.getBlue()] * clr_off;
+                ran_vars_k.Interior.Color = clr_sma;
+                ran_vars_rwa.Interior.Color = clr_sma;
             end
         end
         
@@ -1589,9 +1621,12 @@ classdef (Sealed) BaselOP < BaselInterface
                 k = round(mean(val),2);
             end
             
+            rwa = 12.5 * k;
+            
             jpan_cap_rslt = javaObjectEDT(findjobj(this.Handles.CapitalTableResult));
             jtab_cap_rslt = javaObjectEDT(jpan_cap_rslt.getViewport().getView());
-            jtab_cap_rslt.setValueAt(k,4,1);
+            jtab_cap_rslt.setValueAt(k,5,1);
+            jtab_cap_rslt.setValueAt(rwa,6,1);
         end
         
         function UpdateData(this)
@@ -1701,8 +1736,11 @@ classdef (Sealed) BaselOP < BaselInterface
                 k = 0.11e9 + ((bic - 0.11e9) * ilm);
             end
             
+            rwa = 12.5 * k;
+            
             jtab_cap_rslt.setValueAt(ilm,2,1);
             jtab_cap_rslt.setValueAt(k,3,1);
+            jtab_cap_rslt.setValueAt(rwa,4,1);
         end
     end
 end
