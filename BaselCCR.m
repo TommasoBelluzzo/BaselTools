@@ -1,6 +1,3 @@
-% CHECK SHORT TERM COLL
-% RESIDUAL RISK
-
 classdef (Sealed) BaselCCR < BaselInterface
     %% Properties: Instance
     properties (Access = private)
@@ -1099,7 +1096,6 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             for i = 1:trds_len
                 trd = trds(i,:);
-                trd_ref = char(trd.Reference);
                 
                 if (trd.End < 1)
                     trd_sup_dur = sqrt(trd.End);
@@ -1151,7 +1147,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 trd_eff_not = trd_adj_not * trd_sup_del * trd_mat_fac;
                 
-                trds_par(i,:) = {trd.Class trd.Subclass trd_ref trd_eff_not};
+                trds_par(i,:) = {trd.Class trd.Subclass char(trd.Reference) trd_eff_not};
             end
             
             hs_comp_idi = 0;
@@ -1226,7 +1222,6 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             for i = 1:trds_len
                 trd = trds(i,:);
-                trd_ref = char(trd.Reference);
                 
                 trd_sup_dur = trd.End - trd.Start;
                 trd_adj_not = trd.Notional * trd_sup_dur;
@@ -1239,7 +1234,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 trd_eff_not = trd_adj_not * trd_sup_del * trds_mat_fac;
                 
-                trds_par(i,:) = {trd.Class trd.Subclass trd_ref trd_eff_not};
+                trds_par(i,:) = {trd.Class trd.Subclass char(trd.Reference) trd_eff_not};
             end
             
             [ref_uni,~,ref_uni_idx] = unique(trds_par(:,3));
@@ -1301,8 +1296,6 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             for i = 1:trds_len
                 trd = trds(i,:);
-                trd_cls = char(trd.Class);
-                trd_ref = char(trd.Reference);
                 
                 if (trd.End < 1)
                     trd_sup_dur = sqrt(trd.End);
@@ -1348,7 +1341,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 trd_eff_not = trd_adj_not * trd_sup_del * trd_mat_fac;
                 
-                trds_par(i,:) = {trd_cls trd_ref trd_eff_not};
+                trds_par(i,:) = {char(trd.Class) char(trd.Reference) trd_eff_not};
             end
             
             hs_comp_idi = 0;
@@ -1402,8 +1395,6 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             for i = 1:trds_len
                 trd = trds(i,:);
-                trd_cls = char(trd.Class);
-                trd_ref = char(trd.Reference);
                 
                 trd_sup_dur = trd.End - trd.Start;
                 trd_adj_not = trd.Notional * trd_sup_dur;
@@ -1416,7 +1407,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 trd_eff_not = trd_adj_not * trd_sup_del * trds_mat_fac;
                 
-                trds_par(i,:) = {trd_cls trd_ref trd_eff_not};
+                trds_par(i,:) = {char(trd.Class) char(trd.Reference) trd_eff_not};
             end
             
             [ref_uni,~,ref_uni_idx] = unique(trds_par(:,2));
@@ -1938,6 +1929,122 @@ classdef (Sealed) BaselCCR < BaselInterface
             hs = {hs_name_pre hs_name_ccy hs_name_tar hs_eff_not hs_addon rfs};
         end
         
+        function [addon,hs] = CalculateAddonResidual_Full(this,trds,trds_mat_fac) %#ok<INUSL>
+            addon = 0;
+            
+            if (isempty(trds))
+                hs = {};
+                return;
+            end
+            
+            trds_len = height(trds);
+            trds_par = cell(trds_len,2);
+            
+            for i = 1:trds_len
+                trd = trds(i,:);
+
+                if (~ismissing(trd.OptionPosition))
+                    trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 1.5^2 * trd.OptionTime)) / (1.5 * sqrt(trd.OptionTime));
+                    
+                    if (trd.Position == 'LONG')
+                        if (trd.OptionPosition == 'LONG')
+                            trd_sup_del = normcdf(trd_sup_del);
+                        else
+                            trd_sup_del = normcdf(-trd_sup_del);
+                        end
+                    else
+                        if (trd.OptionPosition == 'LONG')
+                            trd_sup_del = -normcdf(-trd_sup_del);
+                        else
+                            trd_sup_del = -normcdf(trd_sup_del);
+                        end
+                    end
+                else
+                    if (trd.Position == 'LONG')
+                        trd_sup_del = 1;
+                    else
+                        trd_sup_del = -1;
+                    end
+                end
+                
+                if (isnan(trds_mat_fac))
+                    trd_mat_fac = sqrt(min([1 trd.Maturity]));
+                else
+                    trd_mat_fac = trds_mat_fac;
+                end
+                
+                trd_eff_not = trd.Notional * trd_sup_del * trd_mat_fac;
+
+                trds_par(i,:) = {char(trd.Reference) trd_eff_not};
+            end
+
+            addon = 0;
+            
+            [ref_uni,~,ref_uni_idx] = unique(trds_par(:,1));
+            ref_uni_len = numel(ref_uni);
+            
+            rfs = [ref_uni num2cell(zeros(ref_uni_len,4))];
+            
+            for i = 1:ref_uni_len
+                rf = trds_par((ref_uni_idx == i),:);
+                rf_idx = strcmp(rfs(:,1),rf{1,1});
+                
+                rf_eff_not = sum([rf{:,2}]);
+                rf_addon = 0.08 * abs(rf_eff_not);
+                
+                addon = addon + rf_addon;
+                
+                rfs(rf_idx,2:end) = {rf_eff_not rf_addon NaN NaN};
+            end
+
+            hs = {'RESIDUAL' NaN addon rfs};
+        end
+        
+        function [addon,hs] = CalculateAddonResidual_Simple(this,trds,trds_mat_fac) %#ok<INUSL>
+            addon = 0;
+            
+            if (isempty(trds))
+                hs = {};
+                return;
+            end
+            
+            trds_len = height(trds);
+            trds_par = cell(trds_len,2);
+            
+            for i = 1:trds_len
+                trd = trds(i,:);
+                
+                if (trd.Position == 'LONG')
+                    trd_sup_del = 1;
+                else
+                    trd_sup_del = -1;
+                end
+                
+                trd_eff_not = trd.Notional * trd_sup_del * trds_mat_fac;
+                
+                trds_par(i,:) = {char(trd.Reference) trd_eff_not};
+            end
+
+            [ref_uni,~,ref_uni_idx] = unique(trds_par(:,1));
+            ref_uni_len = numel(ref_uni);
+            
+            rfs = [ref_uni num2cell(zeros(ref_uni_len,4))];
+            
+            for i = 1:ref_uni_len
+                rf = trds_par((ref_uni_idx == i),:);
+                rf_idx = strcmp(rfs(:,1),rf{1,1});
+                
+                rf_eff_not = sum([rf{:,2}]);
+                rf_addon = 0.08 * abs(rf_eff_not);
+                
+                addon = addon + rf_addon;
+                
+                rfs(rf_idx,2:end) = {rf_eff_not rf_addon NaN NaN};
+            end
+
+            hs = {'RESIDUAL' NaN addon rfs};
+        end
+        
         function c = CalculateCollateral(this,cols,col_mat_fac) %#ok<INUSL>
             c = 0;
             
@@ -1945,6 +2052,52 @@ classdef (Sealed) BaselCCR < BaselInterface
                 col = cols(i,:);
                 
                 switch (col.Type)
+                    case {'BOND_BANK' 'BOND_OTHER'}
+                        switch (char(col.Parameter))
+                            case {'AAA' 'AA' 'A-1'}
+                                if (col.Maturity <= 1)
+                                    col_sup_hc = 0.01;
+                                elseif (col.Maturity <= 3)
+                                    col_sup_hc = 0.03;
+                                elseif (col.Maturity <= 5)
+                                    col_sup_hc = 0.04;
+                                elseif (col.Maturity <= 10)
+                                    col_sup_hc = 0.06;
+                                else
+                                    col_sup_hc = 0.12;
+                                end
+                            otherwise
+                                if (col.Maturity <= 1)
+                                    col_sup_hc = 0.02;
+                                elseif (col.Maturity <= 3)
+                                    col_sup_hc = 0.04;
+                                elseif (col.Maturity <= 5)
+                                    col_sup_hc = 0.06;
+                                elseif (col.Maturity <= 10)
+                                    col_sup_hc = 0.12;
+                                else
+                                    col_sup_hc = 0.20;
+                                end
+                        end
+                    case 'BOND_SECURITISATION'
+                        switch (char(col.Parameter))
+                            case {'AAA' 'AA' 'A-1'}
+                                if (col.Maturity <= 1)
+                                    col_sup_hc = 0.02;
+                                elseif (col.Maturity <= 5)
+                                    col_sup_hc = 0.08;
+                                else
+                                    col_sup_hc = 0.16;
+                                end
+                            otherwise
+                                if (col.Maturity <= 1)
+                                    col_sup_hc = 0.04;
+                                elseif (col.Maturity <= 5)
+                                    col_sup_hc = 0.12;
+                                else
+                                    col_sup_hc = 0.24;
+                                end
+                        end  
                     case 'BOND_SOVEREIGN'
                         switch (char(col.Parameter))
                             case {'AAA' 'AA' 'A-1'}
@@ -1963,27 +2116,8 @@ classdef (Sealed) BaselCCR < BaselInterface
                                 else
                                     col_sup_hc = 0.06;
                                 end
-                            case 'BB'
+                            otherwise
                                 col_sup_hc = 0.15;
-                        end
-                    case 'BOND_OTHER'
-                        switch (char(col.Parameter))
-                            case {'AAA' 'AA' 'A-1'}
-                                if (col.Maturity <= 1)
-                                    col_sup_hc = 0.01;
-                                elseif (col.Maturity <= 5)
-                                    col_sup_hc = 0.04;
-                                else
-                                    col_sup_hc = 0.08;
-                                end
-                            case {'A' 'BBB' 'A-2' 'A-3'}
-                                if (col.Maturity <= 1)
-                                    col_sup_hc = 0.02;
-                                elseif (col.Maturity <= 5)
-                                    col_sup_hc = 0.06;
-                                else
-                                    col_sup_hc = 0.12;
-                                end
                         end
                     case 'CASH'
                         col_sup_hc = 0;
@@ -2041,8 +2175,11 @@ classdef (Sealed) BaselCCR < BaselInterface
             trd_ir = trds((trds.Class == 'IR'),:);
             [addon_ir,hs_ir] = this.CalculateAddonInterestRate_Full(trd_ir,trds_mat_fac,off);
             
-            addon = addon_co + addon_cr + addon_eq + addon_fx + addon_ir;
-            hs = [hs_co; hs_cr; hs_eq; hs_fx; hs_ir];
+            trd_re = trds((trds.Class == 'RE'),:);
+            [addon_re,hs_re] = this.CalculateAddonResidual_Full(trd_re,trds_mat_fac);
+            
+            addon = addon_co + addon_cr + addon_eq + addon_fx + addon_ir + addon_re;
+            hs = [hs_co; hs_cr; hs_eq; hs_fx; hs_ir; hs_re];
             
             if (vc < 0)
                 mul = min([1 (0.05 + (0.95 * exp(vc / (1.9 * addon))))]);
@@ -2079,8 +2216,11 @@ classdef (Sealed) BaselCCR < BaselInterface
             trd_ir = trds((trds.Class == 'IR'),:);
             [addon_ir,hs_ir] = this.CalculateAddonInterestRate_Simple(trd_ir,trds_mat_fac);
             
-            addon = addon_co + addon_cr + addon_eq + addon_fx + addon_ir;
-            hs = [hs_co; hs_cr; hs_eq; hs_fx; hs_ir];
+            trd_re = trds((trds.Class == 'RE'),:);
+            [addon_re,hs_re] = this.CalculateAddonResidual_Simple(trd_re,trds_mat_fac);
+
+            addon = addon_co + addon_cr + addon_eq + addon_fx + addon_ir + addon_re;
+            hs = [hs_co; hs_cr; hs_eq; hs_fx; hs_ir; hs_re];
             
             pfe = addon;
             
@@ -2158,31 +2298,35 @@ classdef (Sealed) BaselCCR < BaselInterface
                 end
                 
                 switch (col.Type)
+                    case 'BOND_BANK'
+                        cols_tab{i,3} = 'BD_BAN';
+                    case 'BOND_SECURITISATION'
+                        cols_tab{i,3} = 'BD_SEC';
                     case 'BOND_SOVEREIGN'
-                        cols_tab{i,3} = 'BOND_SOV';
+                        cols_tab{i,3} = 'BD_SOV';
                     case 'BOND_OTHER'
-                        cols_tab{i,3} = 'BOND_OTH';
+                        cols_tab{i,3} = 'BD_OTH';
                     case 'CASH'
                         cols_tab{i,3} = 'CASH';
                     case 'EQUITY_MAIN'
-                        cols_tab{i,3} = 'EQUI_SOV';
+                        cols_tab{i,3} = 'EQ_MAI';
                     case 'EQUITY_OTHER'
-                        cols_tab{i,3} = 'EQUI_OTH';
+                        cols_tab{i,3} = 'EQ_OTH';
                     case 'GOLD'
                         cols_tab{i,3} = 'GOLD';
-                    case 'OTHER'
+                    otherwise
                         cols_tab{i,3} = 'OTHER';
                 end
                 
                 cols_tab(i,4:5) = {char(col.Margin) col.Value};
                 
-                if (ismember(col.Type,categorical({'BOND_SOVEREIGN' 'BOND_OTHER' 'OTHER'})))
+                if (ismember(col.Type,categorical({'BOND_BANK' 'BOND_SECURITISATION' 'BOND_SOVEREIGN' 'BOND_OTHER' 'OTHER'})))
                     cols_tab{i,6} = char(col.Parameter);
                 else
                     cols_tab{i,6} = '';
                 end
                 
-                if (ismember(col.Type,categorical({'BOND_SOVEREIGN' 'BOND_OTHER'})))
+                if (ismember(col.Type,categorical({'BOND_BANK' 'BOND_SECURITISATION' 'BOND_SOVEREIGN' 'BOND_OTHER'})))
                     cols_tab{i,7} = col.Maturity;
                 else
                     cols_tab{i,7} = NaN;
@@ -2254,12 +2398,12 @@ classdef (Sealed) BaselCCR < BaselInterface
             data.CollateralsMaximumID = max(cols.ID);
             data.CollateralsMaximumNettingSetID = max(cellfun(@(x)numel(x),cols.NettingSetID));
             data.CollateralsMaximumValue = this.FindConstrainedLength(cols.Value);
-            data.CollateralsMaximumMaturity = max([0; cols.Maturity]);
+            data.CollateralsMaximumMaturity = this.FindConstrainedLength(cols.Maturity);
             data.Sets = nss_tab;
             data.SetsMaximumID = max(cellfun(@(x)numel(x),nss.ID));
             data.SetsMaximumThreshold = max(nss.Threshold);
             data.SetsMaximumMTA = max(nss.MTA);
-            data.SetsMaximumMPOR = max(nss.MPOR);
+            data.SetsMaximumMPOR = this.FindConstrainedLength(nss.MPOR);
             data.Trades = trds_tab;
             data.TradesMaximumID = max(trds.ID);
             data.TradesMaximumNettingSetID = max(cellfun(@(x)numel(x),trds.NettingSetID));
@@ -2300,7 +2444,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             opts = detectImportOptions(file,'Sheet',2);
             opts = setvartype(opts,{'uint32' 'uint32' 'categorical' 'categorical' 'double' 'double' 'double' 'double' 'double' 'categorical' 'char' 'char' 'char' 'char' 'char' 'double' 'double' 'categorical' 'double' 'double' 'double'});
-            opts = setvaropts(opts,'Class','Categories',{'CO' 'CR_IDX' 'CR_SIN' 'EQ_IDX' 'EQ_SIN' 'FX' 'IR'});
+            opts = setvaropts(opts,'Class','Categories',{'CO' 'CR_IDX' 'CR_SIN' 'EQ_IDX' 'EQ_SIN' 'FX' 'IR' 'RE'});
             opts = setvaropts(opts,'Subclass','Categories',{'OTHER' 'AGRICULTURAL' 'CLIMATIC' 'ENERGY' 'METAL' 'IG' 'SG' 'AAA' 'AA' 'A' 'BBB' 'BB' 'B' 'CCC'});
             opts = setvaropts(opts,'Position','Categories',{'LONG' 'SHORT'});
             opts = setvaropts(opts,'OptionPosition','Categories',{'LONG' 'SHORT'});
@@ -2308,7 +2452,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             opts = detectImportOptions(file,'Sheet',3);
             opts = setvartype(opts,{'uint32' 'uint32' 'uint32' 'categorical' 'categorical' 'double' 'char' 'double'});
-            opts = setvaropts(opts,'Type','Categories',{'BOND_SOVEREIGN' 'BOND_OTHER' 'CASH' 'EQUITY_MAIN' 'EQUITY_OTHER' 'GOLD' 'OTHER'});
+            opts = setvaropts(opts,'Type','Categories',{'BOND_BANK' 'BOND_SECURITISATION' 'BOND_SOVEREIGN' 'BOND_OTHER' 'CASH' 'EQUITY_MAIN' 'EQUITY_OTHER' 'GOLD' 'OTHER'});
             opts = setvaropts(opts,'Margin','Categories',{'ICA' 'VM'});
             cols = readtable(file,opts);
         end
@@ -2409,10 +2553,11 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             par_o = str2double(cols.Parameter);
             par_mis = ismissing(cols.Parameter);
-            par_inv_bs = (cols.Type == 'BOND_SOVEREIGN') & (par_mis | ~ismember(cols.Parameter,{'AAA','AA','A','BBB' 'BB' 'A-1' 'A-2' 'A-3'}));
-            par_inv_bo = (cols.Type == 'BOND_OTHER') & (par_mis | ~ismember(cols.Parameter,{'AAA','AA','A','BBB' 'A-1' 'A-2' 'A-3'}));
+            par_inv_bba = (cols.Type == 'BOND_BANK') & (par_mis | ~ismember(cols.Parameter,{'AAA','AA','A','BBB' 'A-1' 'A-2' 'A-3' 'UNR'}));
+            par_inv_bre = ((cols.Type == 'BOND_OTHER') | (cols.Type == 'BOND_SECURITISATION')) & (par_mis | ~ismember(cols.Parameter,{'AAA','AA','A','BBB' 'A-1' 'A-2' 'A-3'}));
+            par_inv_bso = (cols.Type == 'BOND_SOVEREIGN') & (par_mis | ~ismember(cols.Parameter,{'AAA','AA','A','BBB' 'BB' 'A-1' 'A-2' 'A-3'}));
             par_inv_o = (cols.Type == 'OTHER') & (~isreal(par_o) | ~isfinite(par_o) | (par_o < 0) | (par_o > 1));
-            par_inv = par_inv_bs | par_inv_bo | par_inv_o;
+            par_inv = par_inv_bba | par_inv_bre | par_inv_bso | par_inv_o;
             
             if (any(par_inv))
                 rows = (1:height(cols))';
@@ -2422,17 +2567,17 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             if (stg)
-                par_inv = ~ismember(cols.Type,categorical({'BOND_SOVEREIGN' 'BOND_OTHER' 'OTHER'})) & ~par_mis;
+                par_inv = ~ismember(cols.Type,categorical({'BOND_BANK' 'BOND_SECURITISATION' 'BOND_SOVEREIGN' 'BOND_OTHER' 'OTHER'})) & ~par_mis;
                 
                 if (any(par_inv))
                     rows = (1:height(cols))';
                     ref = rows(par_inv) + 1;
-                    err = char(strcat("In the 'Collaterals' table, only bond or undefined type entries should specify a 'Parameter' value (rows: ",strjoin(string(ref),', '),")."));
+                    err = char(strcat("In the 'Collaterals' table, only bond or undefined entries should specify a 'Parameter' value (rows: ",strjoin(string(ref),', '),")."));
                     return;
                 end
             end
             
-            cols_mat = ismember(cols.Type,categorical({'BOND_SOVEREIGN' 'BOND_OTHER'}));
+            cols_mat = ismember(cols.Type,categorical({'BOND_BANK' 'BOND_SECURITISATION' 'BOND_SOVEREIGN' 'BOND_OTHER'}));
             mat_inv = cols_mat & (~isreal(cols.Maturity) | ~isfinite(cols.Maturity) | (cols.Maturity <= 0));
             
             if (any(mat_inv))
@@ -2449,7 +2594,16 @@ classdef (Sealed) BaselCCR < BaselInterface
                     rows = (1:height(cols))';
                     ref = rows(mat_inv) + 1;
                     err = char(strcat("In the 'Collaterals' table, only bond entries should specify a 'Maturity' value (rows: ",strjoin(string(ref),', '),")."));
+                    return;
                 end
+            end
+
+            mat_inv = ismember(cols.Parameter,{'A-1' 'A-2' 'A-3'}) & (cols.Maturity > 0.25);
+            
+            if (any(mat_inv))
+                rows = (1:height(cols))';
+                ref = rows(mat_inv) + 1;
+                err = char(strcat("In the 'Collaterals' table, short-term ratings are associated to non short-term maturities (rows: ",strjoin(string(ref),', '),")."));
             end
         end
         
@@ -2541,16 +2695,13 @@ classdef (Sealed) BaselCCR < BaselInterface
                     return;
                 end
             end
-            
-            if (stg)
-                nss_unu = ~ismember(nss.ID,trds.NettingSetID);
-                
-                if (any(nss_unu))
-                    rows = (1:height(nss))';
-                    ref = rows(nss_unu) + 1;
-                    err = char(strcat("The 'Netting Sets' table contains unused entries (rows: ",strjoin(string(ref),', '),")."));
-                    return;
-                end
+
+            nss_unu = ~ismember(nss.ID,trds.NettingSetID);
+
+            if (any(nss_unu))
+                rows = (1:height(nss))';
+                ref = rows(nss_unu) + 1;
+                err = char(strcat("The 'Netting Sets' table contains unused entries (rows: ",strjoin(string(ref),', '),")."));
             end
         end
         
@@ -2611,6 +2762,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             trds_eq = trds_eq_idx | trds_eq_sin;
             trds_fx = trds.Class == 'FX';
             trds_ir = trds.Class == 'IR';
+            trds_re = trds.Class == 'RE';
             trds_leg = trds_fx | trds_ir;
             
             cls_sub_inv_co = trds_co & ~ismember(trds.Subclass,categorical({'AGRICULTURAL','CLIMATIC','ENERGY','METAL','OTHER'}));
@@ -2626,7 +2778,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             if (stg)
-                cls_sub_inv = (trds_eq | trds_leg) & ~ismissing(trds.Subclass);
+                cls_sub_inv = (trds_eq | trds_leg | trds_re) & ~ismissing(trds.Subclass);
                 
                 if (any(cls_sub_inv))
                     rows = (1:height(trds))';
@@ -3246,6 +3398,8 @@ classdef (Sealed) BaselCCR < BaselInterface
                 clr_trd_fx = [clr_trd_fx.getRed() clr_trd_fx.getGreen() clr_trd_fx.getBlue()] * clr_off;
                 clr_trd_ir = Environment.ColorCcrTrdsIr;
                 clr_trd_ir = [clr_trd_ir.getRed() clr_trd_ir.getGreen() clr_trd_ir.getBlue()] * clr_off;
+                clr_trd_re = Environment.ColorCcrTrdsRe;
+                clr_trd_re = [clr_trd_re.getRed() clr_trd_re.getGreen() clr_trd_re.getBlue()] * clr_off;
                 
                 ran_nss_tab.Borders.ColorIndex = 1;
                 ran_nss_tab.Borders.LineStyle = 1;
@@ -3298,8 +3452,10 @@ classdef (Sealed) BaselCCR < BaselInterface
                         ran_hs.Interior.Color = clr_trd_eq;
                     elseif (startsWith(hs_name,'FOREIGN EXCHANGE'))
                         ran_hs.Interior.Color = clr_trd_fx;
-                    else
+                    elseif (startsWith(hs_name,'INTEREST RATE'))
                         ran_hs.Interior.Color = clr_trd_ir;
+                    else
+                        ran_hs.Interior.Color = clr_trd_re;
                     end
                     
                     i_off = i_off + 1;
@@ -3348,8 +3504,10 @@ classdef (Sealed) BaselCCR < BaselInterface
                             ran_rf.Interior.Color = clr_trd_cr;
                         elseif (startsWith(rf_name,'EQUITY'))
                             ran_rf.Interior.Color = clr_trd_eq;
-                        else
+                        elseif (startsWith(rf_name,'FOREIGN EXCHANGE'))
                             ran_rf.Interior.Color = clr_trd_fx;
+                        else
+                            ran_rf.Interior.Color = clr_trd_re;
                         end
                         
                         i_off = i_off + 1;
