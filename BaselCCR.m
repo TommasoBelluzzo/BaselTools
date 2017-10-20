@@ -26,15 +26,8 @@ classdef (Sealed) BaselCCR < BaselInterface
                 end
             end
             
-            warning('off','all');
-            
-            javaaddpath(fullfile(pwd(),'BaselTools.jar'));
-            
-            import('baseltools.*');
-            Environment.CleanHeap();
-            
-            com.mathworks.mwswing.MJUtilities.initJIDE();
-            
+            this.Construct();
+
             this.Initialized = false;
             
             gui = struct();
@@ -48,7 +41,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             gui_mainfcn(gui);
         end
     end
-    
+
     %% Destructor
     methods (Access = private)
         function delete(this)
@@ -67,8 +60,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.ResultEAD = [];
             this.Trades = [];
             
-            import('baseltools.*');
-            Environment.CleanHeap();
+            this.Destruct();
         end
     end
     
@@ -140,10 +132,8 @@ classdef (Sealed) BaselCCR < BaselInterface
                     'VerticalScrollbar', true);
                 
                 this.SetupTable(this.Handles.ResultTableNetting, ...
-                    'Sorting',           2, ...
                     'VerticalScrollbar', true);
                 this.SetupTable(this.Handles.ResultTableHedging, ...
-                    'Sorting',           2, ...
                     'VerticalScrollbar', true);
                 this.SetupTable(this.Handles.ResultTableRisk, ...
                     'VerticalScrollbar', true);
@@ -194,22 +184,23 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.SetupTable(this.Handles.DatasetTableTrades, ...
                 'Sorting',           2, ...
                 'VerticalScrollbar', true);
+            this.Handles.DatasetTextNotional.String = 'Total Notional: 0,00';
             
             this.Handles.DatasetCheckboxValidation.Enable = 'on';
             this.Handles.DatasetTextValidation.Enable = 'on';
-            
-            
+
             this.SetupTable(this.Handles.ResultTableNetting, ...
-                'Sorting',           2, ...
                 'VerticalScrollbar', true);
             this.Handles.ResultTextEAD.String = 'Total EAD: 0,00';
             
+            this.Handles.ResultTextHedging.String = 'Hedging Sets';
             this.SetupTable(this.Handles.ResultTableHedging, ...
-                'Sorting',           2, ...
                 'VerticalScrollbar', true);
             
+            this.Handles.ResultTextRisk.String = 'Risk Factors';
             this.SetupTable(this.Handles.ResultTableRisk, ...
                 'VerticalScrollbar', true);
+            this.Handles.ResultTextType.String = 'Type: N/A';
             
             this.Handles.ResultButtonCalculate.Enable = 'off';
             this.Handles.ResultButtonReset.Enable = 'off';
@@ -319,11 +310,13 @@ classdef (Sealed) BaselCCR < BaselInterface
             waitbar(0.75,bar,'Updating Interface...');
 
             try
+                import('baseltools.*');
+                
                 this.Handles.DatasetTextNetting.String = ['Netting Sets (' num2str(size(data.Sets,1)) ')'];
                 this.SetupTable(this.Handles.DatasetTableNetting, ...
                     'Data',              data.Sets, ...
                     'FillHeight',        false, ...
-                    'Renderer',          {'RendererCcrDataNets' data.SetsMaximumID data.SetsMaximumThreshold data.SetsMaximumMTA data.SetsMaximumMPOR}, ...
+                    'Renderer',          {'RendererCcrDataNets' data.SetsLengths}, ...
                     'RowsHeight',        24, ...
                     'Sorting',           2, ...
                     'VerticalScrollbar', true);
@@ -338,7 +331,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                     this.SetupTable(this.Handles.DatasetTableCollaterals, ...
                         'Data',              data.Collaterals, ...
                         'FillHeight',        false, ...
-                        'Renderer',          {'RendererCcrDataCols' data.CollateralsMaximumID data.CollateralsMaximumNettingSetID data.CollateralsMaximumValue data.CollateralsMaximumMaturity}, ...
+                        'Renderer',          {'RendererCcrDataCols' data.CollateralsLengths}, ...
                         'RowsHeight',        24, ...
                         'Sorting',           2, ...
                         'VerticalScrollbar', true);
@@ -348,10 +341,11 @@ classdef (Sealed) BaselCCR < BaselInterface
                 this.SetupTable(this.Handles.DatasetTableTrades, ...
                     'Data',              data.Trades, ...
                     'FillHeight',        false, ...
-                    'Renderer',          {'RendererCcrDataTrds' data.TradesMaximumID data.TradesMaximumNettingSetID data.TradesMaximumNotional data.TradesMaximumValue data.TradesMaximumStart data.TradesMaximumEnd data.TradesMaximumMaturity}, ...
+                    'Renderer',          {'RendererCcrDataTrds' data.TradesLengths}, ...
                     'RowsHeight',        24, ...
                     'Sorting',           2, ...
                     'VerticalScrollbar', true);
+                this.Handles.DatasetTextNotional.String = ['Total Notional: ' char(Environment.FormatNumber(data.TradesTotalNotional,true,2))];
                 
                 this.Handles.DatasetButtonClear.Enable = 'on';
                 
@@ -387,6 +381,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 this.SetupTable(this.Handles.DatasetTableTrades, ...
                     'Sorting',           2, ...
                     'VerticalScrollbar', true);
+                this.Handles.DatasetTextNotional.String = 'Total Notional: 0,00';
                 
                 delete(bar);
                 
@@ -422,8 +417,10 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             try
                 nss_len = height(this.NettingSets);
-                nss_res = cell(nss_len,10);
-                
+
+                nss_res = cell((nss_len * 2),9);
+                nss_res_off = 1;
+
                 ead_tot = 0;
                 
                 if (this.Handles.ResultCheckboxSimplified.Value == 0)
@@ -433,15 +430,10 @@ classdef (Sealed) BaselCCR < BaselInterface
                         ns = this.NettingSets(i,:);
                         trds = this.Trades(strcmp(this.Trades.NettingSetID,ns.ID),:);
                         cols = this.Collaterals(strcmp(this.Collaterals.NettingSetID,ns.ID),:);
-                        
-                        if (isempty(trds))
-                            nss_res(i,:) = {char(ns.ID) 0 NaN NaN NaN {} NaN NaN NaN {}};
-                            continue;
-                        end
-                        
+
                         if (ns.Margined)
-                            [rc_umar,pfe_umar,ead_umar,hs_umar] = this.CalculateEAD_Full(ns,false,trds,cols,off);
-                            [rc_mar,pfe_mar,ead_mar,hs_mar] = this.CalculateEAD_Full(ns,true,trds,cols,off);
+                            [rc_umar,addon_umar,mul_umar,pfe_umar,ead_umar,hs_umar] = this.CalculateEAD_Full(ns,false,trds,cols,off);
+                            [rc_mar,addon_mar,mul_mar,pfe_mar,ead_mar,hs_mar] = this.CalculateEAD_Full(ns,true,trds,cols,off);
                             
                             if (ead_mar > ead_umar)
                                 ead = ead_umar;
@@ -449,11 +441,16 @@ classdef (Sealed) BaselCCR < BaselInterface
                                 ead = ead_mar;
                             end
                             
-                            nss_res(i,:) = {char(ns.ID) ead rc_umar pfe_umar ead_umar hs_umar rc_mar pfe_mar ead_mar hs_mar};
+                            nss_res(nss_res_off,:) = {char(ns.ID) ead 'U' rc_umar addon_umar mul_umar pfe_umar ead_umar hs_umar};
+                            nss_res(nss_res_off+1,:) = {'' ead 'M' rc_mar addon_mar mul_mar pfe_mar ead_mar hs_mar};
                         else
-                            [rc,pfe,ead,hs] = this.CalculateEAD_Full(ns,false,trds,cols,off);
-                            nss_res(i,:) = {char(ns.ID) ead rc pfe ead hs NaN NaN NaN {}};
+                            [rc,addon,mul,pfe,ead,hs] = this.CalculateEAD_Full(ns,false,trds,cols,off);
+                            
+                            nss_res(nss_res_off,:) = {char(ns.ID) ead 'U' rc addon mul pfe ead hs};
+                            nss_res(nss_res_off+1,:) = {'' ead 'M' NaN NaN NaN NaN NaN {}};
                         end
+                        
+                        nss_res_off = nss_res_off + 2;
                         
                         ead_tot = ead_tot + ead;
                     end
@@ -461,34 +458,26 @@ classdef (Sealed) BaselCCR < BaselInterface
                     for i = 1:nss_len
                         ns = this.NettingSets(i,:);
                         trds = this.Trades(strcmp(this.Trades.NettingSetID,ns.ID),:);
-                        
-                        if (isempty(trds))
-                            nss_res(i,:) = {char(ns.ID) 0 NaN NaN NaN {} NaN NaN NaN {}};
-                            continue;
-                        end
-                        
+
                         if (ns.Margined)
-                            [rc,pfe,ead,hs] = this.CalculateEAD_Simple(ns,true,trds);
-                            nss_res(i,:) = {char(ns.ID) ead NaN NaN NaN {} rc pfe ead hs};
+                            [rc,addon,mul,pfe,ead,hs] = this.CalculateEAD_Simple(ns,true,trds);
+                            
+                            nss_res(nss_res_off,:) = {char(ns.ID) ead 'U' NaN NaN NaN NaN NaN {}};
+                            nss_res(nss_res_off+1,:) = {'' ead 'M' rc addon mul pfe ead hs};
                         else
-                            [rc,pfe,ead,hs] = this.CalculateEAD_Simple(ns,false,trds);
-                            nss_res(i,:) = {char(ns.ID) ead rc pfe ead hs NaN NaN NaN {}};
+                            [rc,addon,mul,pfe,ead,hs] = this.CalculateEAD_Simple(ns,false,trds);
+                            
+                            nss_res(nss_res_off,:) = {char(ns.ID) ead 'U' rc addon mul pfe ead hs};
+                            nss_res(nss_res_off+1,:) = {'' ead 'M' NaN NaN NaN NaN NaN {}};
                         end
+                        
+                        nss_res_off = nss_res_off + 2;
                         
                         ead_tot = ead_tot + ead;
                     end
                 end
-                
-                nss_tab = nss_res(:,[1:5 7:9]);
-                nss_vals = cell2mat(nss_tab(:,2:end));
-                nss_max_id = max(cellfun(@(x)numel(x),nss_tab(:,1)));
-                nss_max_ead = max(nss_vals(:,1));
-                nss_max_rc_umar = this.FindConstrainedMaximum(nss_vals(:,2));
-                nss_max_pfe_umar = this.FindConstrainedMaximum(nss_vals(:,3));
-                nss_max_ead_umar = this.FindConstrainedMaximum(nss_vals(:,4));
-                nss_max_rc_mar = this.FindConstrainedMaximum(nss_vals(:,5));
-                nss_max_pfe_mar = this.FindConstrainedMaximum(nss_vals(:,6));
-                nss_max_ead_mar = this.FindConstrainedMaximum(nss_vals(:,7));
+
+                nss_tab = nss_res(:,1:end-1);
             catch e
                 err = this.FormatException('The calculations could not be performed.',e);
             end
@@ -521,22 +510,25 @@ classdef (Sealed) BaselCCR < BaselInterface
 
             try
                 import('baseltools.*');
-                
+
+                nss_tab(:,1) = pad(nss_tab(:,1));
+                nss_tab(:,2) = this.FormatCurrency(nss_tab(:,2),true,false);
+                nss_tab(:,[4:5 7:8]) = this.FormatCurrency(nss_tab(:,[4:5 7:8]),true,true);
+                nss_tab(:,6) = this.FormatNumber(nss_tab(:,6),false,4);
+
                 this.SetupTable(this.Handles.ResultTableNetting, ...
                     'Data',              nss_tab, ...
                     'FillHeight',        false, ...
-                    'MouseClicked',      @this.ResultTableNetting_Clicked, ...
-                    'MouseEntered',      @this.ResultTable_Entered, ...
-                    'MouseExited',       @this.ResultTable_Exited, ...
-                    'Renderer',          {'RendererCcrRsltNets' nss_max_id nss_max_ead nss_max_rc_umar nss_max_pfe_umar nss_max_ead_umar nss_max_rc_mar nss_max_pfe_mar nss_max_ead_mar}, ...
+                    'MouseEntered',      @this.ResultTable_MouseEntered, ...
+                    'MouseExited',       @this.ResultTable_MouseExited, ...
+                    'MouseReleased',     @this.ResultTableNetting_Selected, ...
+                    'Renderer',          {'RendererCcrRsltNets'}, ...
                     'RowsHeight',        24, ...
-                    'Selection',         [false false true], ...
-                    'Sorting',           2, ...
+                    'Selection',         [false false false], ...
                     'VerticalScrollbar', true);
                 this.Handles.ResultTextEAD.String = ['Total EAD: ' char(Environment.FormatNumber(ead_tot,true,2))];
                 
                 this.SetupTable(this.Handles.ResultTableHedging, ...
-                    'Sorting',           2, ...
                     'VerticalScrollbar', true);
                 
                 this.SetupTable(this.Handles.ResultTableRisk, ...
@@ -562,7 +554,6 @@ classdef (Sealed) BaselCCR < BaselInterface
                 this.Handles.ResultTextEAD.String = 'Total EAD: 0,00';
                 
                 this.SetupTable(this.Handles.ResultTableHedging, ...
-                    'Sorting',           2, ...
                     'VerticalScrollbar', true);
                 
                 this.SetupTable(this.Handles.ResultTableRisk, ...
@@ -605,21 +596,48 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.Handles.ResultTextCompact.Enable = 'off';
             this.Handles.ResultCheckboxStyles.Enable = 'off';
             this.Handles.ResultTextStyles.Enable = 'off';
-            
-            file = ['\Results\ResultCCR-' datestr(now(),'ddmmyyyy') '.xlsx'];
-            file = fullfile(pwd(),file);
+
+            rel_path = ['\Results\ResultCCR-' datestr(now(),'ddmmyyyy') '.xlsx'];
+            file = fullfile(pwd(),rel_path);
             
             if (exist(file,'file') == 2)
                 res = questdlg(['The destination file "' file '" already exist. Do you want to overwrite it?'],'Alert','Yes','No','No');
                 
                 if (strcmp(res,'No'))
-                    this.Handles.ResultCheckboxCompact.Enable = 'on';
-                    this.Handles.ResultTextCompact.Enable = 'on';
-                    this.Handles.ResultCheckboxStyles.Enable = 'on';
-                    this.Handles.ResultTextStyles.Enable = 'on';
-                    obj.Enable = 'on';
+                    quit = false;
                     
-                    return;
+                    while (true)
+                        res = inputdlg('Please, enter a valid file name or relative path:','File',1,{rel_path});
+
+                        if (isempty(res))
+                            quit = true;
+                            break;
+                        end
+                        
+                        if (~endsWith(res,'.xlsx'))
+                            continue;
+                        end
+                        
+                        mat = regexpi(res,'^[a-z]:\\');
+                        
+                        if (size(mat{1},1) > 0)
+                            continue;
+                        end
+                        
+                        file = fullfile(pwd(),res);
+                        
+                        break;
+                    end
+                    
+                    if (quit)
+                        this.Handles.ResultCheckboxCompact.Enable = 'on';
+                        this.Handles.ResultTextCompact.Enable = 'on';
+                        this.Handles.ResultCheckboxStyles.Enable = 'on';
+                        this.Handles.ResultTextStyles.Enable = 'on';
+                        obj.Enable = 'on';
+
+                        return;
+                    end
                 end
             end
             
@@ -671,16 +689,17 @@ classdef (Sealed) BaselCCR < BaselInterface
             this.ResultEAD = [];
             
             this.SetupTable(this.Handles.ResultTableNetting, ...
-                'Sorting',           2, ...
                 'VerticalScrollbar', true);
             this.Handles.ResultTextEAD.String = 'Total EAD: 0,00';
             
+            this.Handles.ResultTextHedging.String = 'Hedging Sets';
             this.SetupTable(this.Handles.ResultTableHedging, ...
-                'Sorting',           2, ...
                 'VerticalScrollbar', true);
             
+            this.Handles.ResultTextRisk.String = 'Risk Factors';
             this.SetupTable(this.Handles.ResultTableRisk, ...
                 'VerticalScrollbar', true);
+            this.Handles.ResultTextType.String = 'Type: N/A';
             
             if (this.Handles.ResultCheckboxSimplified.Value == 0)
                 this.Handles.ResultCheckboxOffset.Enable = 'on';
@@ -709,23 +728,33 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
         end
         
-        function ResultTable_Entered(this,obj,evd) %#ok<INUSD>
+        function ResultTable_MouseEntered(this,obj,evd) %#ok<INUSD>
             this.Handles.BaselCCR.Pointer = 'hand';
         end
         
-        function ResultTable_Exited(this,obj,evd) %#ok<INUSD>
+        function ResultTable_MouseExited(this,obj,evd) %#ok<INUSD>
             this.Handles.BaselCCR.Pointer = 'arrow';
         end
         
-        function ResultTableHedging_Clicked(this,obj,evd)
-            sel = obj.rowAtPoint(evd.getPoint());
+        function ResultTableHedging_Selected(this,obj,evd)
+            import('javax.swing.SwingUtilities');
             
-            if (sel < 0)
+            if (~SwingUtilities.isLeftMouseButton(evd))
                 return;
             end
             
-            hsid = obj.getValueAt(sel,0);
+            row = obj.rowAtPoint(evd.getPoint());
             
+            if (row < 0)
+                return;
+            end
+
+            if (mod(row,2) == 0)
+                hsid = obj.getValueAt(row,0);
+            else
+                hsid = obj.getValueAt(row-1,0);
+            end
+
             if (strcmp(hsid,this.CurrentHedgingSet))
                 return;
             end
@@ -741,69 +770,88 @@ classdef (Sealed) BaselCCR < BaselInterface
             err = '';
             
             try
-                ns = this.Result(strcmp(this.Result(:,1),this.CurrentNettingSet),:);
+                ns_idx = strcmp(this.Result(:,1),this.CurrentNettingSet);
+                ns_idx(find(ns_idx == 1) + 1) = 1;
                 
-                hs_umar = ns{6};
+                ns = this.Result(ns_idx,:);
+
+                hs_umar = ns{1,end};
                 hs_umar_emp = isempty(hs_umar);
-                
-                hs_mar = ns{end};
+
+                hs_mar = ns{2,end};
                 hs_mar_emp = isempty(hs_mar);
-                
-                if (hs_umar_emp && hs_mar_emp)
+
+                if (hs_umar_emp)
+                    rfs_umar = {};
+                    rfs_umar_emp = true;
+                else
+                    rfs_umar = hs_umar{strcmp(hs_umar(:,1),hsid),4};
+                    rfs_umar_emp = isempty(rfs_umar);
+                end
+
+                if (hs_mar_emp)
+                    rfs_mar = {};
+                    rfs_mar_emp = true;
+                else
+                    rfs_mar = hs_mar{strcmp(hs_mar(:,1),hsid),4};
+                    rfs_mar_emp = isempty(rfs_mar);
+                end
+
+                if (rfs_umar_emp && rfs_mar_emp)
+                    this.Handles.ResultTextRisk.String = 'Risk Factors';
                     this.SetupTable(this.Handles.ResultTableRisk, ...
                         'VerticalScrollbar', true);
+                    this.Handles.ResultTextType.String = 'Type: N/A';
                 else
                     if (hs_umar_emp)
-                        rf_umar = {};
-                        rf_umar_emp = true;
+                        hs_idx = strcmp(hs_mar(:,1),hsid);
                     else
-                        rf_umar = hs_umar{strcmp(hs_umar(:,1),hsid),4};
-                        rf_umar_emp = isempty(rf_umar);
+                        hs_idx = strcmp(hs_umar(:,1),hsid);
                     end
                     
-                    if (hs_mar_emp)
-                        rf_mar = {};
-                        rf_mar_emp = true;
-                    else
-                        rf_mar = hs_mar{strcmp(hs_mar(:,1),hsid),4};
-                        rf_mar_emp = isempty(rf_mar);
+                    hs_idx_pos = find(hs_idx == 1);
+                    
+                    if (hs_idx_pos ~= 1)
+                        hs_idx_pos = (hs_idx_pos * 2) - 1;
                     end
                     
-                    if (rf_umar_emp && rf_mar_emp)
-                        this.SetupTable(this.Handles.ResultTableRisk, ...
-                            'VerticalScrollbar', true);
+                    if (rfs_umar_emp)
+                        rfs_umar = num2cell(nan(size(rfs_mar)));
+                        rfs_umar(:,1) = rfs_mar(:,1);
+                    elseif (rfs_mar_emp)
+                        rfs_mar = num2cell(nan(size(rfs_umar)));
+                        rfs_mar(:,1) = rfs_umar(:,1);
+                    end
+
+                    rfs_size = size(rfs_umar,1);
+
+                    rfs_tab = cell((rfs_size * 2),6);
+                    rfs_tab_off = 1;
+
+                    for i = 1:rfs_size
+                        rfs_tab(rfs_tab_off,:) = {rfs_umar{i,1} 'U' rfs_umar{i,2:end}};
+                        rfs_tab(rfs_tab_off+1,:) = {'' 'M' rfs_mar{i,2:end}};
+
+                        rfs_tab_off = rfs_tab_off + 2;
+                    end
+                    
+                    rfs_tab(:,3:end) = this.FormatCurrency(rfs_tab(:,3:end),true,true);
+
+                    obj.getModel().setTag(int32(hs_idx_pos));
+                    obj.repaint();
+                    
+                    this.Handles.ResultTextRisk.String = ['Risk Factors (Hedging Set: "' hsid '")'];
+                    this.SetupTable(this.Handles.ResultTableRisk, ...
+                        'Data',              rfs_tab, ...
+                        'FillHeight',        false, ...
+                        'Renderer',          {'RendererCcrRsltRisk' hsid}, ...
+                        'RowsHeight',        24, ...
+                        'VerticalScrollbar', true);
+
+                    if (startsWith(hsid,'INTEREST RATE'))
+                        this.Handles.ResultTextType.String = 'Type: Pairwise Correlation';
                     else
-                        if (rf_umar_emp)
-                            rf_umar = num2cell(nan(size(rf_mar)));
-                            rf_umar(:,1) = rf_mar(:,1);
-                        elseif (rf_mar_emp)
-                            rf_mar = num2cell(nan(size(rf_umar)));
-                            rf_mar(:,1) = rf_umar(:,1);
-                        end
-                        
-                        ref_vals_len = size(rf_umar,1);
-                        ref_vals = cell((ref_vals_len * 2),6);
-                        
-                        i_off = 1;
-                        
-                        for i = 1:ref_vals_len
-                            ref_vals(i_off,:) = {rf_umar{i,1} 'U' rf_umar{i,2:end}};
-                            ref_vals(i_off+1,:) = {'' 'M' rf_mar{i,2:end}};
-                            
-                            i_off = i_off + 2;
-                        end
-                        
-                        rf_max_eff_not = this.FindConstrainedLength(cell2mat(ref_vals(:,3)));
-                        rf_max_addon = this.FindConstrainedLength(cell2mat(ref_vals(:,4)));
-                        rf_max_comp_sys = this.FindConstrainedLength(cell2mat(ref_vals(:,5)));
-                        rf_max_comp_idi = this.FindConstrainedLength(cell2mat(ref_vals(:,6)));
-                        
-                        this.SetupTable(this.Handles.ResultTableRisk, ...
-                            'Data',              ref_vals, ...
-                            'FillHeight',        false, ...
-                            'Renderer',          {'RendererCcrRsltRisk' hsid rf_max_eff_not rf_max_addon rf_max_comp_sys rf_max_comp_idi}, ...
-                            'RowsHeight',        24, ...
-                            'VerticalScrollbar', true);
+                        this.Handles.ResultTextType.String = 'Type: Single Factor Model Correlation';
                     end
                 end
             catch e
@@ -811,8 +859,10 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
             
             if (~isempty(err))
+                this.Handles.ResultTextRisk.String = 'Risk Factors';
                 this.SetupTable(this.Handles.ResultTableRisk, ...
                     'VerticalScrollbar', true);
+                this.Handles.ResultTextType.String = 'Type: N/A';
 
                 delete(bar);
                 
@@ -826,15 +876,25 @@ classdef (Sealed) BaselCCR < BaselInterface
             delete(bar);
         end
         
-        function ResultTableNetting_Clicked(this,obj,evd)
-            sel = obj.rowAtPoint(evd.getPoint());
+        function ResultTableNetting_Selected(this,obj,evd)
+            import('javax.swing.SwingUtilities');
             
-            if (sel < 0)
+            if (~SwingUtilities.isLeftMouseButton(evd))
                 return;
             end
             
-            nsid = obj.getValueAt(sel,0);
+            row = obj.rowAtPoint(evd.getPoint());
             
+            if (row < 0)
+                return;
+            end
+
+            if (mod(row,2) == 0)
+                nsid = obj.getValueAt(row,0);
+            else
+                nsid = obj.getValueAt(row-1,0);
+            end
+
             if (strcmp(nsid,this.CurrentNettingSet))
                 return;
             end
@@ -851,49 +911,82 @@ classdef (Sealed) BaselCCR < BaselInterface
             err = '';
 
             try
-                ns = this.Result(strcmp(this.Result(:,1),nsid),:);
+                ns_idx = strcmp(this.Result(:,1),nsid);
+                ns_idx_pos = find(ns_idx == 1);
+                ns_idx(ns_idx_pos + 1) = 1;
                 
-                hs_umar = ns{6};
+                ns = this.Result(ns_idx,:);
+
+                hs_umar = ns{1,end};
                 hs_umar_emp = isempty(hs_umar);
-                
-                hs_mar = ns{end};
+
+                hs_mar = ns{2,end};
                 hs_mar_emp = isempty(hs_mar);
-                
-                if (hs_umar_emp && hs_mar_emp)
-                    this.SetupTable(this.Handles.ResultTableHedging, ...
-                        'Sorting',           2, ...
-                        'VerticalScrollbar', true);
+
+                if (hs_umar_emp)
+                    hs_size = size(hs_mar);
+                    hs_len = hs_size(1);
+
+                    hs_umar = num2cell(nan(hs_size));
+                    hs_umar(:,1) = hs_mar(:,1);
+                elseif (hs_mar_emp)
+                    hs_size = size(hs_umar);
+                    hs_len = hs_size(1);
+
+                    hs_mar = num2cell(nan(hs_size));
+                    hs_mar(:,1) = hs_umar(:,1);
                 else
-                    if (hs_umar_emp)
-                        hs_umar = num2cell(nan(size(hs_mar)));
-                        hs_umar(:,1) = hs_mar(:,1);
-                    elseif (hs_mar_emp)
-                        hs_mar = num2cell(nan(size(hs_umar)));
-                        hs_mar(:,1) = hs_umar(:,1);
-                    end
-                    
-                    hs_vals_umar = cell2mat(hs_umar(:,2:3));
-                    hs_max_eff_not_umar = this.FindConstrainedMaximum(hs_vals_umar(:,1));
-                    hs_max_addon_umar = this.FindConstrainedMaximum(hs_vals_umar(:,2));
-                    hs_vals_mar = cell2mat(hs_mar(:,2:3));
-                    hs_max_eff_not_mar = this.FindConstrainedMaximum(hs_vals_mar(:,1));
-                    hs_max_addon_mar = this.FindConstrainedMaximum(hs_vals_mar(:,2));
-                    
-                    this.SetupTable(this.Handles.ResultTableHedging, ...
-                        'Data',              [hs_umar(:,1:3) hs_mar(:,2:3)], ...
-                        'FillHeight',        false, ...
-                        'MouseClicked',      @this.ResultTableHedging_Clicked, ...
-                        'MouseEntered',      @this.ResultTable_Entered, ...
-                        'MouseExited',       @this.ResultTable_Exited, ...
-                        'Renderer',          {'RendererCcrRsltHeds' hs_max_eff_not_umar hs_max_addon_umar hs_max_eff_not_mar hs_max_addon_mar}, ...
-                        'RowsHeight',        24, ...
-                        'Selection',         [false false true], ...
-                        'Sorting',           2, ...
-                        'VerticalScrollbar', true);
+                    hs_len = size(hs_umar,1);
                 end
                 
+                hs_tab = cell(hs_len,5);
+                hs_tab_off = 1;
+                
+                for i = 1:hs_len
+                    rfs_umar = hs_umar{i,4};
+                    
+                    if (iscell(rfs_umar))
+                        rfs_umar_size = size(rfs_umar,1);
+                    else
+                        rfs_umar_size = NaN;
+                    end
+                    
+                    rfs_mar = hs_mar{i,4};
+                      
+                    if (iscell(rfs_mar))
+                        rfs_mar_size = size(rfs_mar,1);
+                    else
+                        rfs_mar_size = NaN;
+                    end
+
+                    hs_tab(hs_tab_off,:) = {hs_umar{i,1} 'U' hs_umar{i,2} hs_umar{i,3} rfs_umar_size};
+                    hs_tab(hs_tab_off+1,:) = {'' 'M' hs_mar{i,2} hs_mar{i,3} rfs_mar_size};
+
+                    hs_tab_off = hs_tab_off + 2;
+                end
+
+                hs_tab(:,3:4) = this.FormatCurrency(hs_tab(:,3:4),true,true);
+                hs_tab(:,end) = this.FormatNumber(hs_tab(:,end),false,0);
+                
+                obj.getModel().setTag(int32(ns_idx_pos));
+                obj.repaint();
+
+                this.Handles.ResultTextHedging.String = ['Hedging Sets (Netting Set ID: ' ns{1,1} ')'];
+                this.SetupTable(this.Handles.ResultTableHedging, ...
+                    'Data',              hs_tab, ...
+                    'FillHeight',        false, ...
+                    'MouseEntered',      @this.ResultTable_MouseEntered, ...
+                    'MouseExited',       @this.ResultTable_MouseExited, ...
+                    'MouseReleased',     @this.ResultTableHedging_Selected, ...
+                    'Renderer',          {'RendererCcrRsltHeds'}, ...
+                    'RowsHeight',        24, ...
+                    'Selection',         [false false false], ...
+                    'VerticalScrollbar', true);
+                
+                this.Handles.ResultTextRisk.String = 'Risk Factors';
                 this.SetupTable(this.Handles.ResultTableRisk, ...
                     'VerticalScrollbar', true);
+                this.Handles.ResultTextType.String = 'Type: N/A';
             catch e
                 err = this.FormatException('The hedging sets could not be displayed.',e);
             end
@@ -902,12 +995,14 @@ classdef (Sealed) BaselCCR < BaselInterface
                 this.CurrentHedgingSet = '';
                 this.CurrentNettingSet = nsid;
                 
+                this.Handles.ResultTextHedging.String = 'Hedging Sets';
                 this.SetupTable(this.Handles.ResultTableHedging, ...
-                    'Sorting',           2, ...
                     'VerticalScrollbar', true);
-                
+
+                this.Handles.ResultTextRisk.String = 'Risk Factors';
                 this.SetupTable(this.Handles.ResultTableRisk, ...
                     'VerticalScrollbar', true);
+                this.Handles.ResultTextType.String = 'Type: N/A';
 
                 delete(bar);
                 
@@ -2145,7 +2240,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
         end
         
-        function [rc,pfe,ead,hs] = CalculateEAD_Full(this,ns,ns_mar,trds,cols,off)
+        function [rc,addon,mul,pfe,ead,hs] = CalculateEAD_Full(this,ns,ns_mar,trds,cols,off)
             v = sum(trds.Value);
             
             if (ns_mar)
@@ -2191,8 +2286,8 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             ead = 1.4 * (rc + pfe);
         end
-        
-        function [rc,pfe,ead,hs] = CalculateEAD_Simple(this,ns,ns_mar,trds)
+
+        function [rc,addon,mul,pfe,ead,hs] = CalculateEAD_Simple(this,ns,ns_mar,trds)
             if (ns_mar)
                 rc = ns.Threshold + ns.MTA;
                 trds_mat_fac = 0.42;
@@ -2222,7 +2317,8 @@ classdef (Sealed) BaselCCR < BaselInterface
             addon = addon_co + addon_cr + addon_eq + addon_fx + addon_ir + addon_re;
             hs = [hs_co; hs_cr; hs_eq; hs_fx; hs_ir; hs_re];
             
-            pfe = addon;
+            mul = 1;
+            pfe = mul * addon;
             
             ead = 1.4 * (rc + pfe);
         end
@@ -2385,33 +2481,69 @@ classdef (Sealed) BaselCCR < BaselInterface
                 end
                 
                 if (~ismissing(trd.OptionPosition))
-                    trds_tab{i,11} = 'YES';
+                    trds_tab{i,11} = true;
                 else
-                    trds_tab{i,11} = 'NO';
+                    trds_tab{i,11} = false;
                 end
             end
             
             trds.NettingSetID = trds_id;
             
             data = struct();
+            
+            cols_max_id = max(cellfun(@(x)numel(x),this.FormatNumber(cols.ID,false,0)));
+            cols_max_nsid = max(cellfun(@(x)numel(x),cols.NettingSetID));
+            cols_max_val = max(cellfun(@(x)numel(x),this.FormatCurrency(cols.Value,true,false)));
+            cols_max_mat = max(cellfun(@(x)numel(x),this.FormatNumber(cols.Maturity,false,2)));
+
             data.Collaterals = cols_tab;
-            data.CollateralsMaximumID = max(cols.ID);
-            data.CollateralsMaximumNettingSetID = max(cellfun(@(x)numel(x),cols.NettingSetID));
-            data.CollateralsMaximumValue = this.FindConstrainedLength(cols.Value);
-            data.CollateralsMaximumMaturity = this.FindConstrainedLength(cols.Maturity);
+            data.CollateralsLengths = [
+                cols_max_id;
+                cols_max_nsid;
+                -1;
+                -1;
+                cols_max_val;
+                -1;
+                cols_max_mat
+            ];
+
+            nss_max_id = max(cellfun(@(x)numel(x),nss.ID));
+            nss_max_thr = max(cellfun(@(x)numel(x),this.FormatCurrency(nss.Threshold,true,true)));
+            nss_max_mta = max(cellfun(@(x)numel(x),this.FormatCurrency(nss.MTA,true,true)));
+            nss_max_mpor = max(cellfun(@(x)numel(x),this.FormatNumber(nss.MPOR,false,2)));
+            
             data.Sets = nss_tab;
-            data.SetsMaximumID = max(cellfun(@(x)numel(x),nss.ID));
-            data.SetsMaximumThreshold = max(nss.Threshold);
-            data.SetsMaximumMTA = max(nss.MTA);
-            data.SetsMaximumMPOR = this.FindConstrainedLength(nss.MPOR);
+            data.SetsLengths = [
+                nss_max_id;
+                -1;
+                nss_max_thr;
+                nss_max_mta;
+                nss_max_mpor
+            ];
+            
+            trds_max_id = max(cellfun(@(x)numel(x),this.FormatNumber(trds.ID,false,0)));
+            trds_max_nsid = max(cellfun(@(x)numel(x),trds.NettingSetID));
+            trds_max_not = max(cellfun(@(x)numel(x),this.FormatCurrency(trds.Notional,true,false)));
+            trds_max_val = max(cellfun(@(x)numel(x),this.FormatCurrency(trds.Value,true,false)));
+            trds_max_sta = max(cellfun(@(x)numel(x),this.FormatNumber(trds.Start,false,2)));
+            trds_max_end = max(cellfun(@(x)numel(x),this.FormatNumber(trds.End,false,2)));
+            trds_max_mat = max(cellfun(@(x)numel(x),this.FormatNumber(trds.Maturity,false,2)));
+
             data.Trades = trds_tab;
-            data.TradesMaximumID = max(trds.ID);
-            data.TradesMaximumNettingSetID = max(cellfun(@(x)numel(x),trds.NettingSetID));
-            data.TradesMaximumNotional = max(trds.Notional);
-            data.TradesMaximumValue = this.FindConstrainedLength(trds.Value);
-            data.TradesMaximumStart = max(trds.Start);
-            data.TradesMaximumEnd = max(trds.End);
-            data.TradesMaximumMaturity = max(trds.Maturity);
+            data.TradesLengths = [
+                trds_max_id;
+                trds_max_nsid;
+                -1;
+                trds_max_not;
+                trds_max_val;
+                trds_max_sta;
+                trds_max_end;
+                trds_max_mat;
+                -1;
+                -1;
+                -1
+            ];
+            data.TradesTotalNotional = sum(trds.Notional);
         end
         
         function [nss,trds,cols,err] = DatasetLoad(this,file) %#ok<INUSL>
@@ -3083,9 +3215,10 @@ classdef (Sealed) BaselCCR < BaselInterface
         function ExportData_Compact(this,exc,exc_wb)
             import('baseltools.*');
             
-            data_hea1 = {['Total EAD: ' char(Environment.FormatNumber(this.ResultEAD,true,2))] ''};
+            data_hea1 = {['Total EAD: ' char(Environment.FormatCurrencyGrouped.format(this.ResultEAD))] ''};
             data_hea2 = {'Netting Set ID' 'EAD'};
-            data_tab = this.Result(:,1:2);
+
+            data_tab = [this.Result(1:2:end,1:2) this.Result(2:2:end,2)];
             data_vals_len = size(data_tab,1);
             data_vals_end = num2str(data_vals_len + 2);
             
@@ -3161,14 +3294,14 @@ classdef (Sealed) BaselCCR < BaselInterface
         
         function ExportData_Full(this,exc,exc_wb)
             import('baseltools.*');
-            
+
             nss_tab = [
-                {['Total EAD: ' char(Environment.FormatNumber(this.ResultEAD,true,2))] '' '' '' '' '' '' ''};
-                {'Netting Set ID' 'EAD' 'Unmargined RC' 'Unmargined PFE' 'Unmargined EAD' 'Margined RC' 'Margined PFE' 'Margined EAD'};
-                this.Result(:,[1:5 7:9])
+                {['Total EAD: ' char(Environment.FormatCurrencyGrouped.format(this.ResultEAD))] '' '' '' '' '' '' '' '' '' '' ''};
+                {'Netting Set ID' 'Final EAD' 'Unmargined RC' 'Unmargined Add-on' 'Unmargined Multiplier' 'Unmargined PFE' 'Unmargined EAD' 'Margined RC' 'Margined Add-on' 'Margined Multiplier' 'Margined PFE' 'Margined EAD'};
+                [this.Result(1:2:end,1:2) this.Result(1:2:end,4:8) this.Result(2:2:end,4:8)]
             ];
             
-            hss_tab = {'Name' 'Netting Set ID' 'Unmargined EN' 'Unmargined AO' 'Margined EN' 'Margined AO'};
+            hss_tab = {'Name' 'Netting Set ID' 'Unmargined EN' 'Unmargined Add-on' 'Margined EN' 'Margined Add-on'};
             
             rfs_tab_pwc = [
                 {'Pairwise Correlation (Interest Rate)' '' '' '' ''};
@@ -3177,21 +3310,17 @@ classdef (Sealed) BaselCCR < BaselInterface
             
             rfs_tab_sfm = [
                 {'Single Factor Model Correlation (Others)' '' '' '' '' '' '' '' '' '' ''};
-                {'Name' 'Hedging Set Name' 'Netting Set ID' 'Unmargined EN' 'Unmargined AO' 'Unmargined SC' 'Unmargined IC' 'Margined EN' 'Margined AO' 'Margined SC' 'Margined IC'}
+                {'Name' 'Hedging Set Name' 'Netting Set ID' 'Unmargined EN' 'Unmargined Add-on' 'Unmargined SC' 'Unmargined IC' 'Margined EN' 'Margined Add-on' 'Margined SC' 'Margined IC'}
             ];
             
-            for i = 1:size(this.Result,1)
+            for i = 1:2:size(this.Result,1)
                 ns_id = this.Result(i,1);
                 
-                hss_umar = this.Result{i,6};
+                hss_umar = this.Result{i,end};
                 hss_umar_emp = isempty(hss_umar);
                 
-                hss_mar = this.Result{i,end};
+                hss_mar = this.Result{i+1,end};
                 hss_mar_emp = isempty(hss_mar);
-                
-                if (hss_umar_emp && hss_mar_emp)
-                    continue;
-                end
                 
                 if (hss_umar_emp)
                     hss_size = size(hss_mar);
@@ -3267,19 +3396,34 @@ classdef (Sealed) BaselCCR < BaselInterface
             exc_sh1 = exc_wb.Worksheets.Item(1);
             exc_sh1.Name = 'Netting Sets';
             
-            ran_nss_hea1 = exc_sh1.Range('A1:H1');
+            ran_nss_hea1 = exc_sh1.Range('A1:L1');
             ran_nss_hea1.MergeCells = 1;
             
-            ran_nss_hea2 = exc_sh1.Range('A2:H2');
+            ran_nss_hea2 = exc_sh1.Range('A2:L2');
             
             ran_nss_hea = exc.Union(ran_nss_hea1, ...
                 ran_nss_hea2);
             
             ran_nss_id = exc_sh1.Range(['A3:A' nss_tab_len_str]);
             
-            ran_nss_vals = exc_sh1.Range(['B3:H' nss_tab_len_str]);
-            ran_nss_vals.NumberFormat = '#.##0,00';
+            ran_nss_vals_mul_1 = exc_sh1.Range(['E3:E' nss_tab_len_str]);
+            ran_nss_vals_mul_2 = exc_sh1.Range(['J3:J' nss_tab_len_str]);
+
+            ran_nss_vals_mul = exc.Union(ran_nss_vals_mul_1, ...
+                ran_nss_vals_mul_2);
+            ran_nss_vals_mul.NumberFormat = '#0,0000';
             
+            ran_nss_vals_oth_1 = exc_sh1.Range(['B3:D' nss_tab_len_str]);
+            ran_nss_vals_oth_2 = exc_sh1.Range(['F3:I' nss_tab_len_str]);
+            ran_nss_vals_oth_3 = exc_sh1.Range(['K3:L' nss_tab_len_str]);
+            ran_nss_vals_oth = exc.Union(ran_nss_vals_oth_1, ...
+                ran_nss_vals_oth_2, ...
+                ran_nss_vals_oth_3);
+            ran_nss_vals_oth.NumberFormat = '#.##0,00';
+
+            ran_nss_vals = exc.Union(ran_nss_vals_mul, ...
+                ran_nss_vals_oth);
+
             ran_nss_txt = exc.Union(ran_nss_hea, ...
                 ran_nss_id);
             ran_nss_txt.NumberFormat = '@';
@@ -3416,7 +3560,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 for i = i_off:nss_tab_len
                     i_off_str = num2str(i_off);
-                    ran_ns = exc_sh1.Range(['A' i_off_str ':H' i_off_str]);
+                    ran_ns = exc_sh1.Range(['A' i_off_str ':L' i_off_str]);
                     
                     if (endsWith(nss_tab(i,1),'N'))
                         ran_ns.Interior.Color = clr_ns_std;
@@ -3515,37 +3659,10 @@ classdef (Sealed) BaselCCR < BaselInterface
                 end
             end
             
-            exc_sh1.Columns.Item('A:H').AutoFit();
+            exc_sh1.Columns.Item('A:L').AutoFit();
             exc_sh2.Columns.Item('A:F').AutoFit();
             exc_sh3.Columns.Item('A:E').AutoFit();
             exc_sh4.Columns.Item('A:K').AutoFit();
-        end
-        
-        function res = FindConstrainedLength(this,vec) %#ok<INUSL>
-            import('baseltools.*');
-            
-            vec_len = length(vec);
-            len = zeros(vec_len,1);
-            
-            for i = 1:vec_len
-                vec_val = vec(i);
-                
-                if (isnan(vec_val))
-                    len(i) = 3;
-                else
-                    len(i) = length(Environment.FormatCurrencyGrouped.format(vec_val));
-                end
-            end
-            
-            res = max(len);
-        end
-        
-        function res = FindConstrainedMaximum(this,vec) %#ok<INUSL>
-            if (any(isnan(vec)))
-                res = nanmax([3; vec]);
-            else
-                res = max(vec);
-            end
         end
         
         function res = IsValidCurrency(this,ccy) %#ok<INUSL>

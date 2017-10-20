@@ -59,6 +59,57 @@ classdef (Abstract) BaselInterface < handle
     
     %% Methods: Functions
     methods (Access = protected)
+        function Construct(this) %#ok<MANU>
+            warning('off','all');
+
+            javaaddpath(fullfile(pwd(),'BaselTools.jar'));
+
+            import('baseltools.*');
+            Environment.CleanMemoryHeap();
+
+            com.mathworks.mwswing.MJUtilities.initJIDE();
+        end
+        
+        function Destruct(this) %#ok<MANU>
+            import('baseltools.*');
+            Environment.CleanMemoryHeap();
+        end
+        
+        function res = FormatCurrency(this,data,grp,na) %#ok<INUSL>
+            import('baseltools.*');
+            
+            if (~iscell(data))
+                data = num2cell(data);
+            end
+            
+            data_size = size(data);
+            res = cell(data_size);
+
+            for i = 1:data_size(1)
+                for j = 1:data_size(2)
+                    data_curr = data{i,j};
+
+                    if (isnan(data_curr))
+                        if (na)
+                            res{i,j} = 'N/A';
+                        else
+                            res{i,j} = '';
+                        end
+                    else
+                        if (grp)
+                            res{i,j} = char(Environment.FormatCurrencyGrouped.format(data_curr));
+                        else
+                            res{i,j} = char(Environment.FormatCurrencyUngrouped.format(data_curr));
+                        end
+                    end
+                end
+            end
+            
+            for i = 1:data_size(2)
+                res(:,i) = pad(res(:,i),'left');
+            end
+        end
+
         function res = FormatException(this,msg,e) %#ok<INUSL>
             e_msg = strtrim(e.message);
             
@@ -101,7 +152,48 @@ classdef (Abstract) BaselInterface < handle
                 res = [msg ' ' 'The exception produced is: "' e_msg '"' ' (' e_ref{1} ', ' e_ref{2} ').'];
             end
         end
-        
+
+        function res = FormatNumber(this,data,grp,dig) %#ok<INUSL>
+            import('baseltools.*');
+            
+            if (~iscell(data))
+                data = num2cell(data);
+            end
+            
+            data_size = size(data);
+            res = cell(data_size);
+            
+            if (grp)
+                for i = 1:data_size(1)
+                    for j = 1:data_size(2)
+                        data_curr = data{i,j};
+                        
+                        if (isnan(data_curr))
+                            res{i,j} = 'N/A';
+                        else
+                            res{i,j} = char(Environment.FormatNumber(data_curr,true,dig));
+                        end
+                    end
+                end
+            else
+                for i = 1:data_size(1)
+                    for j = 1:data_size(2)
+                        data_curr = data{i,j};
+                        
+                        if (isnan(data_curr))
+                            res{i,j} = 'N/A';
+                        else
+                            res{i,j} = char(Environment.FormatNumber(data_curr,false,dig));
+                        end
+                    end
+                end
+            end
+            
+            for i = 1:data_size(2)
+                res(:,i) = pad(res(:,i),'left');
+            end
+        end
+
         function SetupBox(this,box,varargin) %#ok<INUSL>
             persistent ip;
             
@@ -177,6 +269,8 @@ classdef (Abstract) BaselInterface < handle
                 ip.addParameter('MouseClicked',[],@(x)validateattributes(x,{'function_handle'},{'scalar'}));
                 ip.addParameter('MouseEntered',[],@(x)validateattributes(x,{'function_handle'},{'scalar'}));
                 ip.addParameter('MouseExited',[],@(x)validateattributes(x,{'function_handle'},{'scalar'}));
+                ip.addParameter('MouseMoved',[],@(x)validateattributes(x,{'function_handle'},{'scalar'}));
+                ip.addParameter('MouseReleased',[],@(x)validateattributes(x,{'function_handle'},{'scalar'}));
                 ip.addParameter('Renderer',{'RendererDefault'},@(x)validateattributes(x,{'cell'},{'vector'}));
                 ip.addParameter('RowHeaderWidth',0,@(x)validateattributes(x,{'numeric'},{'scalar','integer','real','finite','>=',1}));
                 ip.addParameter('RowsHeight',0,@(x)validateattributes(x,{'numeric'},{'scalar','integer','real','finite','>=',1}));
@@ -267,20 +361,30 @@ classdef (Abstract) BaselInterface < handle
             mou_cli = ~isempty(ip_res.MouseClicked);
             mou_ent = ~isempty(ip_res.MouseEntered);
             mou_exi = ~isempty(ip_res.MouseExited);
+            mou_mov = ~isempty(ip_res.MouseMoved);
+            mou_rel = ~isempty(ip_res.MouseReleased);
             
-            if (mou_cli || mou_ent || mou_exi)
+            if (mou_cli || mou_ent || mou_exi || mou_mov || mou_rel)
                 cp = handle(jtab,'CallbackProperties');
                 
                 if (mou_cli)
                     set(cp,'MouseClickedCallback',@(obj,evd)ip_res.MouseClicked(jtab,evd));
                 end
-                
+
                 if (mou_ent)
                     set(cp,'MouseEnteredCallback',@(obj,evd)ip_res.MouseEntered(jtab,evd));
                 end
                 
                 if (mou_exi)
                     set(cp,'MouseExitedCallback',@(obj,evd)ip_res.MouseExited(jtab,evd));
+                end
+                
+                if (mou_mov)
+                    set(cp,'MouseMovedCallback',@(obj,evd)ip_res.MouseMoved(jtab,evd));
+                end
+                
+                if (mou_rel)
+                    set(cp,'MouseReleasedCallback',@(obj,evd)ip_res.MouseReleased(jtab,evd));
                 end
             end
             

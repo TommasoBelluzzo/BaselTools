@@ -7,7 +7,7 @@ classdef (Sealed) BaselOP < BaselInterface
         Transition
         Year
     end
-    
+
     %% Constructor
     methods (Access = public)
         function this = BaselOP()
@@ -22,14 +22,7 @@ classdef (Sealed) BaselOP < BaselInterface
                 end
             end
             
-            warning('off','all');
-            
-            javaaddpath(fullfile(pwd(),'BaselTools.jar'));
-            
-            import('baseltools.*');
-            Environment.CleanHeap();
-            
-            com.mathworks.mwswing.MJUtilities.initJIDE();
+            this.Construct();
             
             this.Initialized = false;
             this.Transition = false;
@@ -61,8 +54,7 @@ classdef (Sealed) BaselOP < BaselInterface
             this.Transition = [];
             this.Year = [];
             
-            import('baseltools.*');
-            Environment.CleanHeap();
+            this.Destruct();
         end
     end
     
@@ -281,19 +273,46 @@ classdef (Sealed) BaselOP < BaselInterface
         
         function CapitalButtonExport_Clicked(this,obj,evd) %#ok<INUSD>
             obj.Enable = 'off';
-            
-            file = ['\Results\ResultOP-' datestr(now(),'ddmmyyyy') '.xlsx'];
-            file = fullfile(pwd(),file);
+
+            rel_path = ['\Results\ResultOP-' datestr(now(),'ddmmyyyy') '.xlsx'];
+            file = fullfile(pwd(),rel_path);
             
             if (exist(file,'file') == 2)
                 res = questdlg(['The destination file "' file '" already exist. Do you want to overwrite it?'],'Alert','Yes','No','No');
                 
                 if (strcmp(res,'No'))
-                    obj.Enable = 'on';
-                    return;
+                    quit = false;
+                    
+                    while (true)
+                        res = inputdlg('Please, enter a valid file name or relative path:','File',1,{rel_path});
+
+                        if (isempty(res))
+                            quit = true;
+                            break;
+                        end
+                        
+                        if (~endsWith(res,'.xlsx'))
+                            continue;
+                        end
+                        
+                        mat = regexpi(res,'^[a-z]:\\');
+                        
+                        if (size(mat{1},1) > 0)
+                            continue;
+                        end
+                        
+                        file = fullfile(pwd(),res);
+                        
+                        break;
+                    end
+                    
+                    if (quit)
+                        obj.Enable = 'on';
+                        return;
+                    end
                 end
             end
-            
+
             import('java.awt.*');
             
             bar = waitbar(0,'Expoting Data...','CloseRequestFcn','','WindowStyle','modal');
@@ -452,10 +471,11 @@ classdef (Sealed) BaselOP < BaselInterface
                 
                 this.SetupTable(this.Handles.LossTableDataset, ...
                     'Data',              data.Dataset, ...
-                    'Renderer',          {'RendererOpLossData' data.MaximumID data.MaximumLoss data.MaximumRecovery}, ...
+                    'Renderer',          {'RendererOpLossData' data.Lenghts}, ...
                     'RowHeaderWidth',    56, ...
                     'Sorting',           2, ...
                     'VerticalScrollbar', true);
+
                 this.SetupTable(this.Handles.LossTableResult, ...
                     'Data',              data.Variables, ...
                     'Renderer',          {'RendererOpLossRslt'}, ...
@@ -600,7 +620,7 @@ classdef (Sealed) BaselOP < BaselInterface
     
     %% Methods: Functions
     methods (Access = private)
-        function data = DatasetAnalyze(this,data) %#ok<INUSL>
+        function data = DatasetAnalyze(this,data)
             yea_uni = unique(year(sort(data.Date)));
             yea_uni_len = numel(yea_uni);
             
@@ -618,17 +638,23 @@ classdef (Sealed) BaselOP < BaselInterface
             data.Date = datenum(data.Date);
             data.BL = cellstr(data.BL);
             data.RC = cellstr(data.RC);
+
+            ds = table2cell(data);
             
-            data_max_id = data.ID(end);
-            data_max_loss = max(data.Loss);
-            data_max_rec = max(data.Recovery);
-            data_ds = table2cell(data);
+            data_max_id = max(cellfun(@(x)numel(x),this.FormatNumber(data.ID,false,0)));
+            data_max_loss = max(cellfun(@(x)numel(x),this.FormatCurrency(data.Loss,true,false)));
+            data_max_rec = max(cellfun(@(x)numel(x),this.FormatCurrency(data.Recovery,true,false)));
             
             data = struct();
-            data.Dataset = data_ds;
-            data.MaximumID = data_max_id;
-            data.MaximumLoss = data_max_loss;
-            data.MaximumRecovery = data_max_rec;
+            data.Dataset = ds;
+            data.Lenghts = [
+                data_max_id;
+                -1;
+                -1;
+                -1;
+                data_max_loss;
+                data_max_rec
+            ];  
             data.Variables = vars;
         end
         
