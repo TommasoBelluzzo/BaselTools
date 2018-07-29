@@ -7,14 +7,8 @@
 ## Requirements
 
 The minimum Matlab version required is `R2017a`. In addition, the following products and toolboxes must be installed in order to properly execute the script:
-* Computer Vision System Toolbox
-* Curve Fitting Toolbox
-* MATLAB Distributed Computing Server
-* Optimization Toolbox
-* Parallel Computing Toolbox
-* Simulink Control Design
+* Financial Toolbox
 * Statistics and Machine Learning Toolbox
-* System Identification Toolbox'
 
 ## Notes
 
