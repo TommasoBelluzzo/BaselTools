@@ -20,6 +20,4 @@ The minimum Matlab version required is `R2017a`. In addition, the following prod
 
 ## Notes
 
-* a
-* b
-* c
+* Some core functionalities of all the `Basel Tools` applications are defined within the `BaselTools.jar` package, which has been compiled under `Java 1.8` and includes the original `.java` source code files. Depending on the current Matlab version being used (the console command `version -java` should provide enough details), it may be necessary to recompile it referencing the proper `Java Framework` version.
