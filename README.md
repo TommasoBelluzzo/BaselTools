@@ -1,8 +1,8 @@
 # Basel Tools
 
 `Basel Tools` is a set of `GUI` applications that can produce a rough estimation of capital requirements based on the `Basel IV` regulatory framework. The following applications are currently available:
-* `BaselCCR`: a tool for calculating the capital requirements related to the counterparty credit risk exposures (BCBS 279)
-* `BaselOP`: a tool for calculating the capital requirements related to the operational risk exposures (BCBS 356)
+* `BaselCCR`: a tool for calculating the capital requirements related to the counterparty credit risk exposures (SA-CCR, BCBS 279).
+* `BaselOP`: a tool for calculating the capital requirements related to the operational risk exposures (SMA, BCBS 356).
 
 ## Requirements
 
