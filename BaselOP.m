@@ -667,15 +667,10 @@ classdef (Sealed) BaselOP < BaselInterface
                 return;
             end
             
-            [file_sta,file_shts,file_fmt] = xlsfinfo(file);
+            [file_sta,~,file_fmt] = xlsfinfo(file);
             
             if (isempty(file_sta) || ~strcmp(file_fmt,'xlOpenXMLWorkbook'))
                 err = 'The dataset file is not a valid Excel spreadsheet.';
-                return;
-            end
-            
-            if (numel(file_shts) ~= 1)
-                err = 'The dataset must contain only one sheet.';
                 return;
             end
             
