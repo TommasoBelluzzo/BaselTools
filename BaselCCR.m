@@ -1043,17 +1043,17 @@ classdef (Sealed) BaselCCR < BaselInterface
                     
                     trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * trd_sup_vol^2 * trd.OptionTime)) / (trd_sup_vol * sqrt(trd.OptionTime));
                     
-                    if (trd.OptionPosition == 'LONG')
+                    if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                         trd_sup_del = normcdf(trd_sup_del);
                     else
                         trd_sup_del = normcdf(-trd_sup_del);
                     end
                     
-                    if (trd.Position == 'SHORT')
+                    if (trd.Position == 'SHORT') %#ok<BDSCA>
                         trd_sup_del = -1 * trd_sup_del;
                     end
                 else
-                    if (trd.Position == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
                         trd_sup_del = 1;
                     else
                         trd_sup_del = -1;
@@ -1095,7 +1095,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 trd = trds(i,:);
                 trd_ref = char(trd.Reference);
                 
-                if (trd.Position == 'LONG')
+                if (trd.Position == 'LONG') %#ok<BDSCA>
                     trd_sup_del = 1;
                 else
                     trd_sup_del = -1;
@@ -1203,31 +1203,31 @@ classdef (Sealed) BaselCCR < BaselInterface
                 if (~ismissing(trd.CDOAttachment))
                     trd_sup_del = 15 / ((1 + (14 * trd.CDOAttachment)) * (1 + (14 * trd.CDODetachment)));
                     
-                    if (trd.Position == 'SHORT')
+                    if (trd.Position == 'SHORT') %#ok<BDSCA>
                         trd_sup_del = -1 * trd_sup_del;
                     end
                 elseif (~ismissing(trd.OptionPosition))
-                    if (trd.Class == 'CR_IDX')
+                    if (trd.Class == 'CR_IDX') %#ok<BDSCA>
                         trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 0.8^2 * trd.OptionTime)) / (0.8 * sqrt(trd.OptionTime));
                     else
                         trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * trd.OptionTime)) / sqrt(trd.OptionTime);
                     end
                     
-                    if (trd.Position == 'LONG')
-                        if (trd.OptionPosition == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = normcdf(trd_sup_del);
                         else
                             trd_sup_del = normcdf(-trd_sup_del);
                         end
                     else
-                        if (trd.OptionPosition == 'LONG')
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = -normcdf(-trd_sup_del);
                         else
                             trd_sup_del = -normcdf(trd_sup_del);
                         end
                     end
                 else
-                    if (trd.Position == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
                         trd_sup_del = 1;
                     else
                         trd_sup_del = -1;
@@ -1262,7 +1262,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                     case 'CR_IDX'
                         rf_cor = 0.8;
                         
-                        if (rf{1,2} == 'IG')
+                        if (rf{1,2} == 'IG') %#ok<BDSCA>
                             rf_sup_fac = 0.0038;
                         else
                             rf_sup_fac = 0.0106;
@@ -1321,7 +1321,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 trd_sup_dur = trd.End - trd.Start;
                 trd_adj_not = trd.Notional * trd_sup_dur;
                 
-                if (trd.Position == 'LONG')
+                if (trd.Position == 'LONG') %#ok<BDSCA>
                     trd_sup_del = 1;
                 else
                     trd_sup_del = -1;
@@ -1344,7 +1344,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 
                 switch (rf{1,1})
                     case 'CR_IDX'
-                        if (rf{1,2} == 'IG')
+                        if (rf{1,2} == 'IG') %#ok<BDSCA>
                             rf_sup_fac = 0.0038;
                         else
                             rf_sup_fac = 0.0106;
@@ -1401,27 +1401,27 @@ classdef (Sealed) BaselCCR < BaselInterface
                 trd_adj_not = trd.Notional * trd_sup_dur;
                 
                 if (~ismissing(trd.OptionPosition))
-                    if (trd.Class == 'EQ_IDX')
+                    if (trd.Class == 'EQ_IDX') %#ok<BDSCA>
                         trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 0.75^2 * trd.OptionTime)) / (0.75 * sqrt(trd.OptionTime));
                     else
                         trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 1.2^2 * trd.OptionTime)) / (1.2 * sqrt(trd.OptionTime));
                     end
                     
-                    if (trd.Position == 'LONG')
-                        if (trd.OptionPosition == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = normcdf(trd_sup_del);
                         else
                             trd_sup_del = normcdf(-trd_sup_del);
                         end
                     else
-                        if (trd.OptionPosition == 'LONG')
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = -normcdf(-trd_sup_del);
                         else
                             trd_sup_del = -normcdf(trd_sup_del);
                         end
                     end
                 else
-                    if (trd.Position == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
                         trd_sup_del = 1;
                     else
                         trd_sup_del = -1;
@@ -1452,7 +1452,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 rf_name = rf{1,2};
                 rf_idx = strcmp(rfs(:,1),rf_name);
                 
-                if (rf{1,1} == 'EQ_IDX')
+                if (rf{1,1} == 'EQ_IDX') %#ok<BDSCA>
                     rf_cor = 0.8;
                     rf_sup_fac = 0.2;
                 else
@@ -1494,7 +1494,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 trd_sup_dur = trd.End - trd.Start;
                 trd_adj_not = trd.Notional * trd_sup_dur;
                 
-                if (trd.Position == 'LONG')
+                if (trd.Position == 'LONG') %#ok<BDSCA>
                     trd_sup_del = 1;
                 else
                     trd_sup_del = -1;
@@ -1515,7 +1515,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 rf_name = rf{1,2};
                 rf_idx = strcmp(rfs(:,1),rf_name);
                 
-                if (rf{1,1} == 'EQ_IDX')
+                if (rf{1,1} == 'EQ_IDX') %#ok<BDSCA>
                     rf_sup_fac = 0.2;
                 else
                     rf_sup_fac = 0.32;
@@ -1551,21 +1551,21 @@ classdef (Sealed) BaselCCR < BaselInterface
                 if (~ismissing(trd.OptionPosition))
                     trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 0.15^2 * trd.OptionTime)) / (0.15 * sqrt(trd.OptionTime));
                     
-                    if (trd.Position == 'LONG')
-                        if (trd.OptionPosition == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = normcdf(trd_sup_del);
                         else
                             trd_sup_del = normcdf(-trd_sup_del);
                         end
                     else
-                        if (trd.OptionPosition == 'LONG')
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = -normcdf(-trd_sup_del);
                         else
                             trd_sup_del = -normcdf(trd_sup_del);
                         end
                     end
                 else
-                    if (trd.Position == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
                         trd_sup_del = 1;
                     else
                         trd_sup_del = -1;
@@ -1618,7 +1618,7 @@ classdef (Sealed) BaselCCR < BaselInterface
                 trd_ccys = sort({char(trd.PayerCurrency) char(trd.ReceiverCurrency)});
                 trd_hs = [trd_ccys{1} '/' trd_ccys{2}];
                 
-                if (trd.Position == 'LONG')
+                if (trd.Position == 'LONG') %#ok<BDSCA>
                     trd_sup_del = 1;
                 else
                     trd_sup_del = -1;
@@ -1747,13 +1747,13 @@ classdef (Sealed) BaselCCR < BaselInterface
                     trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 0.5^2 * trd.OptionTime)) / (0.5 * sqrt(trd.OptionTime));
                     
                     if (strcmp(trd_pay_leg,'FIXED'))
-                        if (trd.OptionPosition == 'LONG')
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = normcdf(trd_sup_del);
                         else
                             trd_sup_del = normcdf(-trd_sup_del);
                         end
                     else
-                        if (trd.OptionPosition == 'LONG')
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = -normcdf(-trd_sup_del);
                         else
                             trd_sup_del = -normcdf(trd_sup_del);
@@ -2041,21 +2041,21 @@ classdef (Sealed) BaselCCR < BaselInterface
                 if (~ismissing(trd.OptionPosition))
                     trd_sup_del = (log(trd.OptionPrice / trd.OptionStrike) + (0.5 * 1.5^2 * trd.OptionTime)) / (1.5 * sqrt(trd.OptionTime));
                     
-                    if (trd.Position == 'LONG')
-                        if (trd.OptionPosition == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = normcdf(trd_sup_del);
                         else
                             trd_sup_del = normcdf(-trd_sup_del);
                         end
                     else
-                        if (trd.OptionPosition == 'LONG')
+                        if (trd.OptionPosition == 'LONG') %#ok<BDSCA>
                             trd_sup_del = -normcdf(-trd_sup_del);
                         else
                             trd_sup_del = -normcdf(trd_sup_del);
                         end
                     end
                 else
-                    if (trd.Position == 'LONG')
+                    if (trd.Position == 'LONG') %#ok<BDSCA>
                         trd_sup_del = 1;
                     else
                         trd_sup_del = -1;
@@ -2109,7 +2109,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             for i = 1:trds_len
                 trd = trds(i,:);
                 
-                if (trd.Position == 'LONG')
+                if (trd.Position == 'LONG') %#ok<BDSCA>
                     trd_sup_del = 1;
                 else
                     trd_sup_del = -1;
@@ -2329,7 +2329,7 @@ classdef (Sealed) BaselCCR < BaselInterface
             for i = 1:height(cols)
                 col = cols(i,:);
                 
-                if (col.Margin == 'ICA')
+                if (col.Margin == 'ICA') %#ok<BDSCA>
                     nica = nica + col.Value;
                 end
             end
