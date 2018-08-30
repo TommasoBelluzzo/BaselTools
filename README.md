@@ -8,7 +8,7 @@
 
 The tool can be run by executing the `BaselCCR.m` script. The underlying calculations are based on the `SA-CCR` model defined within the `BCBS 279` document (https://www.bis.org/publ/bcbs279.htm), but the application also offers the option to compute the counterparty credit risk exposures using the `Simplified SA-CCR` as per `CRR II` european regulatory framework.
 
-![BaselCCR](https://i.imgur.com/7gmuKks.png)
+![BaselCCR](https://i.imgur.com/8Ct2fRo.png)
 
 ## BaselOP
 
