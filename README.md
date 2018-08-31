@@ -1,6 +1,7 @@
 # Basel Tools
 
 `Basel Tools` is a set of `GUI` applications that can produce a rough estimation of capital requirements based on the `Basel IV` regulatory framework proposed by the `Basel Committee on Banking Supervision`. The following applications are currently available:
+
 * `BaselCCR`: a tool for calculating the capital requirements related to the counterparty credit risk exposures.
 * `BaselOP`: a tool for calculating the capital requirements related to the operational risk.
 
@@ -19,6 +20,7 @@ The tool can be run by executing the `BaselOP.m` script. The underlying calculat
 ## Requirements
 
 The minimum Matlab version required is `R2017a`. In addition, the following products and toolboxes must be installed in order to properly execute the script:
+
 * Financial Toolbox
 * Statistics and Machine Learning Toolbox
 
