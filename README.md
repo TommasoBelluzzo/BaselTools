@@ -28,5 +28,5 @@ The minimum Matlab version required is `R2017a`. In addition, the following prod
 
 * Some common functionalities of all the `Basel Tools` applications are defined within the `BaselTools.jar` package, which has been compiled under `Java 1.8` and includes the original `.java` source code files. Depending on the current Matlab version being used (the console command `version -java` should provide enough details), it may be necessary to recompile it referencing the proper `Java Framework` version.
 * In order to have a full control over the underlying `Java` components, all the `Basel Tools` applications use the `findjobj.m` script intensively. The script, created by Yair Altman, can be found by visiting [this page](https://it.mathworks.com/matlabcentral/fileexchange/14317-findjobj-find-java-handles-of-matlab-graphic-objects) and is always included into every `Basel Tools` release.
-* The `Basel Tools` applications make use of a singleton pattern.
+* All the applications that are part of the `Basel Tools` suite make use of a singleton pattern.
 * Excel datasets should be pretty straightforward to create, as they must follow the same structure of the example ones included into `Basel Tools`.
