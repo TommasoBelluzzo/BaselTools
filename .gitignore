@@ -1,0 +1,23 @@
+# Code Generation Folders
+codegen/
+slprj/
+sccprj/
+
+# Help Folders
+helpsearch*/
+
+# Autosave Files
+*.asv
+*.autosave
+*.m~
+
+# Binary Files
+*.mex*
+
+# Data Files
+*.mat
+octave-workspace
+
+# Packaged Files
+*.mlappinstall
+*.mltbx
