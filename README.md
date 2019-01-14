@@ -7,13 +7,13 @@
 
 ## BaselCCR
 
-The tool can be run by executing the `BaselCCR.m` script. The underlying calculations are based on the `SA-CCR` model defined within the `BCBS 279` document (https://www.bis.org/publ/bcbs279.htm), but the application also offers the option to compute the counterparty credit risk exposures using the `Simplified SA-CCR` as per `CRR II` european regulatory framework.
+The tool can be run by executing the `BaselCCR.m` script. The underlying calculations are based on the `SA-CCR` model defined within the [BCBS 279](https://www.bis.org/publ/bcbs279.htm), but the application also offers the option to compute the counterparty credit risk exposures using the `Simplified SA-CCR` as per `CRR II` european regulatory framework.
 
 ![BaselCCR](https://i.imgur.com/8Ct2fRo.png)
 
 ## BaselOP
 
-The tool can be run by executing the `BaselOP.m` script. The underlying calculations are based on the `SMA` model defined within the `BCBS 356` document (https://www.bis.org/bcbs/publ/d356.htm). The application offers the opportunity to compare the `SMA` capital requirements with those produced by the obsolete `Basel II` approaches defined in `BCBS 128` (https://www.bis.org/publ/bcbs128.htm): the `Basic Indicator Approach`, the `Standardised Approach` and the `Alternative Standardised Approach`.
+The tool can be run by executing the `BaselOP.m` script. The underlying calculations are based on the `SMA` model defined within the [BCBS 356](https://www.bis.org/bcbs/publ/d356.htm). The application offers the opportunity to compare the `SMA` capital requirements with those produced by the obsolete `Basel II` approaches defined in `BCBS 128` (https://www.bis.org/publ/bcbs128.htm): the `Basic Indicator Approach`, the `Standardised Approach` and the `Alternative Standardised Approach`.
 
 ![BaselOP](https://i.imgur.com/6fXg9fB.png)
 
