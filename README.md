@@ -13,7 +13,7 @@ The tool can be run by executing the `BaselCCR.m` script. The underlying calcula
 
 ## BaselOP
 
-The tool can be run by executing the `BaselOP.m` script. The underlying calculations are based on the `SMA` model defined within the [BCBS 356](https://www.bis.org/bcbs/publ/d356.htm). The application offers the opportunity to compare the `SMA` capital requirements with those produced by the obsolete `Basel II` approaches defined in `BCBS 128` (https://www.bis.org/publ/bcbs128.htm): the `Basic Indicator Approach`, the `Standardised Approach` and the `Alternative Standardised Approach`.
+The tool can be run by executing the `BaselOP.m` script. The underlying calculations are based on the `SMA` model defined within the [BCBS 356](https://www.bis.org/bcbs/publ/d356.htm). The application offers the opportunity to compare the `SMA` capital requirements with those produced by the obsolete `Basel II` approaches defined in [BCBS 128](https://www.bis.org/publ/bcbs128.htm): the `Basic Indicator Approach`, the `Standardised Approach` and the `Alternative Standardised Approach`.
 
 ![BaselOP](https://i.imgur.com/6fXg9fB.png)
 
