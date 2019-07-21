@@ -1,4 +1,5 @@
 classdef (Sealed) BaselOP < BaselInterface
+
     %% Properties: Instance
     properties (Access = private)
         Handles
@@ -1764,4 +1765,5 @@ classdef (Sealed) BaselOP < BaselInterface
             jtab_cap_rslt.setValueAt(rwa,4,1);
         end
     end
+
 end
