@@ -1,4 +1,5 @@
 classdef (Sealed) BaselCCR < BaselInterface
+
     %% Properties: Instance
     properties (Access = private)
         Collaterals
@@ -3757,4 +3758,5 @@ classdef (Sealed) BaselCCR < BaselInterface
             end
         end
     end
+
 end
