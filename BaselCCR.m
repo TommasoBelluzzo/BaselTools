@@ -2557,14 +2557,23 @@ classdef (Sealed) BaselCCR < BaselInterface
                 err = 'The dataset file does not exist.';
                 return;
             end
-            
-            [file_sta,file_shts,file_fmt] = xlsfinfo(file);
-            
-            if (isempty(file_sta) || ~strcmp(file_fmt,'xlOpenXMLWorkbook'))
-                err = 'The dataset file is not a valid Excel spreadsheet.';
-                return;
+
+            if (ispc())
+                [file_stat,file_shts,file_fmt] = xlsfinfo(file);
+
+                if (isempty(file_stat) || ~strcmp(file_fmt,'xlOpenXMLWorkbook'))
+                    err = 'The dataset file is not a valid Excel spreadsheet.';
+                    return;
+                end
+            else
+                [file_stat,file_shts] = xlsfinfo(file);
+
+                if (isempty(file_stat))
+                    err = 'The dataset file is not a valid Excel spreadsheet.';
+                    return;
+                end
             end
-            
+
             if (numel(file_shts) ~= 3)
                 err = 'The dataset must contain three sheets.';
                 return;
