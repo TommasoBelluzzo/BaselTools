@@ -668,11 +668,20 @@ classdef (Sealed) BaselOP < BaselInterface
                 return;
             end
             
-            [file_sta,~,file_fmt] = xlsfinfo(file);
-            
-            if (isempty(file_sta) || ~strcmp(file_fmt,'xlOpenXMLWorkbook'))
-                err = 'The dataset file is not a valid Excel spreadsheet.';
-                return;
+            if (ispc())
+                [file_stat,file_shts,file_fmt] = xlsfinfo(file);
+
+                if (isempty(file_stat) || ~strcmp(file_fmt,'xlOpenXMLWorkbook'))
+                    err = 'The dataset file is not a valid Excel spreadsheet.';
+                    return;
+                end
+            else
+                [file_stat,file_shts] = xlsfinfo(file);
+
+                if (isempty(file_stat))
+                    err = 'The dataset file is not a valid Excel spreadsheet.';
+                    return;
+                end
             end
             
             opts = detectImportOptions(file,'Sheet',1);
